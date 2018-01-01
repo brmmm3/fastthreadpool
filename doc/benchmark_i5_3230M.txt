@@ -1,0 +1,88 @@
+  1.400 0 fastthreadpool_Semaphore
+  3.889 0 threading_Semaphore
+ 11.923 0 fastthreadpool_Semaphore_threads
+ 28.988 0 threading_Semaphore_threads
+
+1000000 values:
+  0.462 499999500000 single threaded
+  0.160 499999500000 sum list
+fastthreadpool:
+  0.271 499999500000 map
+  0.233            0 map_no_done
+  0.688 499999500000 map_done_cb
+  0.290 499999500000 map_failed_cb
+  0.577 499999500000 imap
+  1.045 499999500000 imap_done_cb
+  0.599 499999500000 imap_failed_cb
+  2.153 499999500000 submit
+  2.976 499999500000 submit_pool_done_cb
+  2.304 499999500000 submit_pool_failed_cb
+ 11.109 499999500000 submit_done_cb
+multiprocessing.pool.ThreadPool:
+  0.308 499999500000 ThreadPool_map
+  0.357 499999500000 ThreadPool_map_async_done_cb
+207.135 499999500000 ThreadPool_apply_async_done_cb
+concurrent.futures.ThreadPoolExecutor:
+149.088 499999500000 ThreadPoolExecutor_map
+163.256 499999500000 ThreadPoolExecutor_submit_done_cb
+
+20000 lists with 10000 values:
+ 1.801 999900000000 single threaded
+fastthreadpool:
+ 1.797 999900000000 map
+ 1.818 999900000000 map_done_cb
+ 1.833 999900000000 map_failed_cb
+ 1.786 999900000000 imap
+ 1.828 999900000000 imap_done_cb
+ 1.790 999900000000 imap_failed_cb
+ 1.818 999900000000 submit
+ 1.845 999900000000 submit_done_cb
+ 1.819 999900000000 submit_failed_cb
+multiprocessing.pool.ThreadPool:
+ 1.896 999900000000 ThreadPool_map
+ 1.787 999900000000 ThreadPool_map_async_done_cb
+ 6.843 999900000000 ThreadPool_apply_async_done_cb
+concurrent.futures.ThreadPoolExecutor:
+ 4.734 999900000000 ThreadPoolExecutor_map
+ 8.152 999900000000 ThreadPoolExecutor_submit_done_cb
+
+Compress 10000 times 1000 values:
+ 1.288      10000 single threaded
+fastthreadpool:
+ 0.672      10000 map
+ 0.717      10000 map_done_cb
+ 0.657      10000 map_failed_cb
+ 0.658      10000 imap
+ 0.719      10000 imap_done_cb
+ 0.664      10000 imap_failed_cb
+ 0.668      10000 submit
+ 0.722      10000 submit_done_cb
+ 0.712      10000 submit_failed_cb
+multiprocessing.pool.ThreadPool:
+ 0.702      10000 ThreadPool_map
+ 0.703      10000 ThreadPool_map_async_done_cb
+ 1.133      10000 ThreadPool_apply_async_done_cb
+concurrent.futures.ThreadPoolExecutor:
+ 0.977      10000 ThreadPoolExecutor_map
+ 0.963      10000 ThreadPoolExecutor_submit_done_cb
+
+Pack and compress 10000 times 1000 values:
+ 1.678      10000 single threaded
+fastthreadpool:
+ 0.890      10000 map
+ 0.953      10000 map_done_cb
+ 0.884      10000 map_failed_cb
+ 0.885      10000 imap
+ 0.952      10000 imap_done_cb
+ 0.929      10000 imap_failed_cb
+ 0.943      10000 submit
+ 1.043      10000 submit_done_cb
+ 0.912      10000 submit_failed_cb
+multiprocessing.pool.ThreadPool:
+ 0.904      10000 ThreadPool_map
+ 0.903      10000 ThreadPool_map_async_done_cb
+ 1.646      10000 ThreadPool_apply_async_done_cb
+concurrent.futures.ThreadPoolExecutor:
+ 1.555      10000 ThreadPoolExecutor_map
+ 1.634      10000 ThreadPoolExecutor_submit_done_cb
+ 

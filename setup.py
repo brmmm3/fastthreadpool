@@ -2,7 +2,7 @@
 
 See:
 https://packaging.python.org/en/latest/distributing.html
-https://github.com/pypa/fastthreadpool
+https://github.com/brmmm3/fastthreadpool
 """
 
 # Always prefer setuptools over distutils
@@ -20,12 +20,12 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='fastthreadpool',
-    version='1.0.1',
+    version='1.0.2',
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
 
-    url='https://github.com/pypa/fastthreadpool',
-    download_url = 'https://github.com/brmmm3/fastthreadpool/archive/fastthreadpool-1.0.1.tar.gz',
+    url='https://github.com/brmmm3/fastthreadpool',
+    download_url = 'https://github.com/brmmm3/fastthreadpool/archive/fastthreadpool-1.0.2.tar.gz',
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',
@@ -59,7 +59,7 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
 
-    keywords='threading pool',
+    keywords='fast threading pool',
     #py_modules=["fastthreadpool"],
     packages=find_packages(exclude=['examples', 'doc', 'tests']),
 )

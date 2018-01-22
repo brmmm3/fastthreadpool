@@ -30,15 +30,13 @@ Submit a single job to the pool. **fn** is the function to call and *args and **
 
 The same as **submit** but with an individual done callback function.
 
-**map(fn, itr, done_append = True):**
+**map(fn, itr, done_append = True, shutdown_timeout = None):**
 
-Submit a list of jobs, contained in **itr**, to the pool. **fn** is the function to call.
+Submit a list of jobs, contained in **itr**, to the pool.
+**fn** can be a function to call or a generator function.
 If **done_append** is True then the results of the callback function are appended to the **done** queue.
 Set **done_append** to False to save memory and processing time if the results are not needed.
-
-**imap(fn, itr, done_append = True):**
-
-Same as **map** but with the difference that **fn** is a generator function.
+If **shutdown_timeout** is not None wait up to **shutdown_timeout** seconds.
 
 **shutdown(timeout = None):**
 

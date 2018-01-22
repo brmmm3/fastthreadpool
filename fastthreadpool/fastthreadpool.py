@@ -7,6 +7,7 @@ __author__ = 'Martin Bammer (mrbm74@gmail.com)'
 
 import sys
 import atexit
+import inspect
 import time
 import threading
 import itertools
@@ -49,7 +50,7 @@ _shutdown = False
 _job_cnt = Semaphore()
 _children = set()
 
-LOGGER_NAME = 'threadpool'
+LOGGER_NAME = 'fastthreadpool'
 DEFAULT_LOGGING_FORMAT = '[%(levelname)s/%(processName)s] %(message)s'
 
 
@@ -279,13 +280,14 @@ class Pool(object):
                     if _failed_cnt._value < 1:
                         _failed_cnt_release()
 
-    def _map(self, fn, itr, child, done_append, shutdown_timeout):
+    def map(self, fn, itr, done_append = True, shutdown_timeout = None):
         if _shutdown:
             raise ValueError("Pool not running")
         chunksize, extra = divmod(len(itr), self.max_children)
         if extra:
             chunksize += 1
         it = iter(itr)
+        child = self._imap_child if inspect.isgeneratorfunction(fn) else self._map_child
         for _ in range(self.max_children):
             self._child_cnt += 1
             thread = threading.Thread(target = child, args = ( fn, itertools.islice(it, chunksize), done_append ),
@@ -295,12 +297,6 @@ class Pool(object):
             _children.add(thread)
         if not shutdown_timeout is None:
             self.shutdown(shutdown_timeout)
-
-    def map(self, fn, itr, done_append = True, shutdown_timeout = None):
-        self._map(fn, itr, self._map_child, done_append, shutdown_timeout)
-
-    def imap(self, fn, itr, done_append = True, shutdown_timeout = False):
-        self._map(fn, itr, self._imap_child, done_append, shutdown_timeout)
 
     def _join_thread(self, thread, t, timeout):
         global _shutdown

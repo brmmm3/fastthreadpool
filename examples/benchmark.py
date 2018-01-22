@@ -122,19 +122,19 @@ class TestValues(object):
         pool.shutdown()
         self.result = sum(pool.done)
 
-    def imap(self, data):
+    def map_gen(self, data):
         pool = fastthreadpool.Pool()
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = sum(pool.done)
 
-    def imap_done_cb(self, data):
+    def map_gen_done_cb(self, data):
         with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
-            pool.imap(self.worker_gen, data)
+            pool.map(self.worker_gen, data)
 
-    def imap_failed_cb(self, data):
+    def map_gen_failed_cb(self, data):
         pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = sum(pool.done)
 
@@ -211,6 +211,7 @@ class TestValues(object):
         print("\n%d values:" % cnt)
         values = list(range(cnt))
         self.result = 0
+        """
         t = time.time()
         for value in values:
             self.result_cb(self.worker_cb(value))
@@ -218,14 +219,15 @@ class TestValues(object):
         t = time.time()
         self.result = sum([ self.worker_cb(value) for value in values ])
         print("%7.3f %12d sum list" % (time.time() - t, self.result))
+        """
         print("fastthreadpool:")
-        self.test("map", values)
-        self.test("map_no_done", values)
-        self.test("map_done_cb", values)
-        self.test("map_failed_cb", values)
-        self.test("imap", values)
-        self.test("imap_done_cb", values)
-        self.test("imap_failed_cb", values)
+        #self.test("map", values)
+        #self.test("map_no_done", values)
+        #self.test("map_done_cb", values)
+        #self.test("map_failed_cb", values)
+        self.test("map_gen", values)
+        self.test("map_gen_done_cb", values)
+        self.test("map_gen_failed_cb", values)
         self.test("submit", values)
         self.test("submit_pool_done_cb", values)
         self.test("submit_pool_failed_cb", values)
@@ -287,20 +289,20 @@ class TestLists(object):
         pool.shutdown()
         self.result = sum([ sum(result) for result in pool.done ])
 
-    def imap(self, data):
+    def map_gen(self, data):
         pool = fastthreadpool.Pool()
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = sum([ sum(result) for result in pool.done ])
 
-    def imap_done_cb(self, data):
+    def map_gen_done_cb(self, data):
         pool = fastthreadpool.Pool(done_callback = self.result_cb)
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
 
-    def imap_failed_cb(self, data):
+    def map_gen_failed_cb(self, data):
         pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = sum([ sum(result) for result in pool.done ])
 
@@ -378,9 +380,9 @@ class TestLists(object):
         self.test("map", values)
         self.test("map_done_cb", values)
         self.test("map_failed_cb", values)
-        self.test("imap", values)
-        self.test("imap_done_cb", values)
-        self.test("imap_failed_cb", values)
+        self.test("map_gen", values)
+        self.test("map_gen_done_cb", values)
+        self.test("map_gen_failed_cb", values)
         self.test("submit", values)
         self.test("submit_done_cb", values)
         self.test("submit_failed_cb", values)
@@ -448,20 +450,20 @@ class TestCompress(object):
         pool.shutdown()
         self.result = list(pool.done)
 
-    def imap(self, data):
+    def map_gen(self, data):
         pool = fastthreadpool.Pool()
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = list(pool.done)
 
-    def imap_done_cb(self, data):
+    def map_gen_done_cb(self, data):
         pool = fastthreadpool.Pool(done_callback = self.result_cb)
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
 
-    def imap_failed_cb(self, data):
+    def map_gen_failed_cb(self, data):
         pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
-        pool.imap(self.worker_gen, data)
+        pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = list(pool.done)
 
@@ -547,9 +549,9 @@ class TestCompress(object):
         self.test_compress("map", values)
         self.test_compress("map_done_cb", values)
         self.test_compress("map_failed_cb", values)
-        self.test_compress("imap", values)
-        self.test_compress("imap_done_cb", values)
-        self.test_compress("imap_failed_cb", values)
+        self.test_compress("map_gen", values)
+        self.test_compress("map_gen_done_cb", values)
+        self.test_compress("map_gen_failed_cb", values)
         self.test_compress("submit", values)
         self.test_compress("submit_done_cb", values)
         self.test_compress("submit_failed_cb", values)
@@ -573,9 +575,9 @@ class TestCompress(object):
         self.test_pack_compress("map", values)
         self.test_pack_compress("map_done_cb", values)
         self.test_pack_compress("map_failed_cb", values)
-        self.test_pack_compress("imap", values)
-        self.test_pack_compress("imap_done_cb", values)
-        self.test_pack_compress("imap_failed_cb", values)
+        self.test_pack_compress("map_gen", values)
+        self.test_pack_compress("map_gen_done_cb", values)
+        self.test_pack_compress("map_gen_failed_cb", values)
         self.test_pack_compress("submit", values)
         self.test_pack_compress("submit_done_cb", values)
         self.test_pack_compress("submit_failed_cb", values)
@@ -593,8 +595,8 @@ class TestCompress(object):
 
 
 if __name__ == "__main__":
-    test = TestSemaphore()
-    test.run(1000000)
+    #test = TestSemaphore()
+    #test.run(1000000)
     test = TestValues()
     test.run(1000000)
     test = TestLists()

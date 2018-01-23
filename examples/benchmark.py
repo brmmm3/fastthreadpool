@@ -211,7 +211,6 @@ class TestValues(object):
         print("\n%d values:" % cnt)
         values = list(range(cnt))
         self.result = 0
-        """
         t = time.time()
         for value in values:
             self.result_cb(self.worker_cb(value))
@@ -219,12 +218,11 @@ class TestValues(object):
         t = time.time()
         self.result = sum([ self.worker_cb(value) for value in values ])
         print("%7.3f %12d sum list" % (time.time() - t, self.result))
-        """
         print("fastthreadpool:")
-        #self.test("map", values)
-        #self.test("map_no_done", values)
-        #self.test("map_done_cb", values)
-        #self.test("map_failed_cb", values)
+        self.test("map", values)
+        self.test("map_no_done", values)
+        self.test("map_done_cb", values)
+        self.test("map_failed_cb", values)
         self.test("map_gen", values)
         self.test("map_gen_done_cb", values)
         self.test("map_gen_failed_cb", values)
@@ -595,8 +593,8 @@ class TestCompress(object):
 
 
 if __name__ == "__main__":
-    #test = TestSemaphore()
-    #test.run(1000000)
+    test = TestSemaphore()
+    test.run(1000000)
     test = TestValues()
     test.run(1000000)
     test = TestLists()

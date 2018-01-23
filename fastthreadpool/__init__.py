@@ -2,7 +2,6 @@
 import sys
 
 if sys.version_info[0] > 2:
-    from fastthreadpool.fastthreadpool import Pool
+    from fastthreadpool.fastthreadpool import Pool, Semaphore
 else:
-    from fastthreadpool import Pool
-
+    from fastthreadpool import Pool, Semaphore

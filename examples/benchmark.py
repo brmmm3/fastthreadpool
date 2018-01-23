@@ -145,10 +145,22 @@ class TestValues(object):
         pool.shutdown()
         self.result = sum(pool.done)
 
+    def submit_gen(self, data):
+        pool = fastthreadpool.Pool()
+        for value in data:
+            pool.submit(self.worker_gen, value)
+        pool.shutdown()
+        self.result = sum(pool.done)
+
     def submit_pool_done_cb(self, data):
         with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
             for value in data:
                 pool.submit(self.worker, value)
+
+    def submit_gen_pool_done_cb(self, data):
+        with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
+            for value in data:
+                pool.submit(self.worker_gen, value)
 
     def submit_pool_failed_cb(self, data):
         pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
@@ -227,7 +239,9 @@ class TestValues(object):
         self.test("map_gen_done_cb", values)
         self.test("map_gen_failed_cb", values)
         self.test("submit", values)
+        self.test("submit_gen", values)
         self.test("submit_pool_done_cb", values)
+        self.test("submit_gen_pool_done_cb", values)
         self.test("submit_pool_failed_cb", values)
         self.test("submit_done_cb", values)
         print("multiprocessing.pool.ThreadPool:")
@@ -593,8 +607,8 @@ class TestCompress(object):
 
 
 if __name__ == "__main__":
-    test = TestSemaphore()
-    test.run(1000000)
+    #test = TestSemaphore()
+    #test.run(1000000)
     test = TestValues()
     test.run(1000000)
     test = TestLists()

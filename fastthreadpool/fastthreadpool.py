@@ -166,11 +166,21 @@ class Pool(object):
             try:
                 fn, done_callback, args, kwargs = job
                 if done_callback is True:
-                    done_append(fn(*args, **kwargs))
-                    if _done_cnt._value < 1:
-                        _done_cnt_release()
+                    if inspect.isgeneratorfunction(fn):
+                        for result in fn(*args, **kwargs):
+                            done_append(result)
+                            if _done_cnt._value < 1:
+                                _done_cnt_release()
+                    else:
+                        done_append(fn(*args, **kwargs))
+                        if _done_cnt._value < 1:
+                            _done_cnt_release()
                 elif callable(done_callback):
-                    done_callback(fn(*args, **kwargs))
+                    if inspect.isgeneratorfunction(fn):
+                        for result in fn(*args, **kwargs):
+                            done_callback(result)
+                    else:
+                        done_callback(fn(*args, **kwargs))
             except Exception as exc:
                 failed_append(exc)
                 if _failed_cnt._value < 1:
@@ -186,7 +196,7 @@ class Pool(object):
             child.daemon = True
             child.start()
             _children.add(child)
-        self.jobs.append((fn, done_callback, args, kwargs))
+        self.jobs.append(( fn, done_callback, args, kwargs ))
         if _job_cnt._value < 1:
             # Locking is expensive. So only use it when needed.
             _job_cnt.release()

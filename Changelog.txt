@@ -1,0 +1,8 @@
+1.0.4:
+Add support for generator functions when using submit.
+
+1.0.3:
+Add support for generator functions when using map.
+
+1.0.2:
+Fix link to github repository.

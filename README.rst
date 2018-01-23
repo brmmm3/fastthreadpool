@@ -24,7 +24,7 @@ jobs) and **failed** (exceptions of failed jobs).
 
 **submit(fn, *args, **kwargs):**
 
-Submit a single job to the pool. **fn** is the function to call and *args and **kwargs the arguments.
+Submit a single job to the pool. **fn** is the (generator) function to call and *args and **kwargs the arguments.
 
 **submit_done(fn, done_callback, *args, **kwargs):**
 

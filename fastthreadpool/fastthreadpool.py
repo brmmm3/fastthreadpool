@@ -308,14 +308,19 @@ class Pool(object):
         if not shutdown_timeout is None:
             self.shutdown(shutdown_timeout)
 
+    def alive(self):
+        return len([ 1 for child in _children if child.is_alive() ])
+
     def _join_thread(self, thread, t, timeout):
         global _shutdown
-        dt = 0.1 if timeout is None else t - time.time()
+        dt = 0.1 if timeout is None else max(t - time.time(), 0.0)
         while True:
             try:
                 thread.join(dt)
                 if not thread.is_alive():
-                    return
+                    return thread
+                if timeout <= 0.0:
+                    return None
                 if not timeout is None:
                     raise TimeoutError("Failed to join thread %s" % thread.name)
             except KeyboardInterrupt:
@@ -331,8 +336,9 @@ class Pool(object):
         _job_cnt.release()
         t = None if timeout is None else time.time() + timeout
         for thread in _children:
-            self._join_thread(thread, t, timeout)
-        _children.clear()
+            _children.discard(self._join_thread(thread, t, timeout))
+        if _children:
+            return False
         if hasattr(self, "_thr_done"):
             _shutdown = True
             self._done_cnt.release()
@@ -341,6 +347,7 @@ class Pool(object):
             _shutdown = True
             self._failed_cnt.release()
             self._join_thread(self._thr_failed, t, timeout)
+        return True
 
     def cancel(self):
         global _shutdown

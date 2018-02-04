@@ -38,9 +38,15 @@ If **done_append** is True then the results of the callback function are appende
 Set **done_append** to False to save memory and processing time if the results are not needed.
 If **shutdown_timeout** is not None wait up to **shutdown_timeout** seconds.
 
+**alive():**
+
+Return the number of alive child threads.
+
 **shutdown(timeout = None):**
 
 Shutdown the thread pool. If **timeout** is None wait endless else wait up to **timeout** seconds.
+If **timeout** is equal or less than 0.0 then return immediately.
+**shutdown** returns True if all child threads have died, else False is returned.
 
 **cancel():**
 

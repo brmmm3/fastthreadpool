@@ -1,3 +1,8 @@
+1.0.5:
+Add alive function which return the number of alive child threads.
+shutdown now return True if all child threads have died.
+If timeout value in shutdown <= 0 return immediately.
+
 1.0.4:
 Add support for generator functions when using submit.
 

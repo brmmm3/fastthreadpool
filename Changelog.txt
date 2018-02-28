@@ -1,3 +1,8 @@
+1.0.6:
+submit and submit_done return now the id of the job.
+cancel accepts a job id. This allows cancelling of single jobs.
+Fix a bug in shutdown.
+
 1.0.5:
 Add alive function which return the number of alive child threads.
 shutdown now return True if all child threads have died.

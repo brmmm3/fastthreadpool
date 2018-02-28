@@ -196,16 +196,18 @@ class Pool(object):
             child.daemon = True
             child.start()
             _children.add(child)
-        self.jobs.append(( fn, done_callback, args, kwargs ))
+        job = ( fn, done_callback, args, kwargs )
+        self.jobs.append(job)
         if _job_cnt._value < 1:
             # Locking is expensive. So only use it when needed.
             _job_cnt.release()
+        return id(job)
 
     def submit(self, fn, *args, **kwargs):
-        self._submit(fn, True, args, kwargs)
+        return self._submit(fn, True, args, kwargs)
 
     def submit_done(self, fn, done_callback, *args, **kwargs):
-        self._submit(fn, done_callback, args, kwargs)
+        return self._submit(fn, done_callback, args, kwargs)
 
     def _map_child(self, fn, itr, done_append):
         _done_cnt = self._done_cnt
@@ -335,7 +337,7 @@ class Pool(object):
             self.jobs.append(None)
         _job_cnt.release()
         t = None if timeout is None else time.time() + timeout
-        for thread in _children:
+        for thread in tuple(_children):
             _children.discard(self._join_thread(thread, t, timeout))
         if _children:
             return False
@@ -349,9 +351,20 @@ class Pool(object):
             self._join_thread(self._thr_failed, t, timeout)
         return True
 
-    def cancel(self):
+    def cancel(self, jobid = None):
         global _shutdown
-        _shutdown = True
-        for _ in range(self.max_children):
-            self.jobs.appendleft(None)
-        _job_cnt.release()
+        if jobid is None:
+            _shutdown = True
+            for _ in range(self.max_children):
+                self.jobs.appendleft(None)
+            _job_cnt.release()
+            return True
+        for job in self.jobs:
+            if id(job) == jobid:
+                try:
+                    self.jobs.remove(job)
+                    return True
+                except:
+                    return False
+        return False
+

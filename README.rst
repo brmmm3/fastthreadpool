@@ -298,7 +298,10 @@ Example ``ex_simple_sum.py`` results on a Celeron N3160 are:
 
  0.019 seconds for simple for loop.
  0.037 seconds for simple for loop. Result is saved in class variable.
- 0.048 seconds for fastthreadpool.map. Results are save in **done** queue.
- 0.494 seconds for fastthreadpool.submit. Results are save in **done** queue.
+ 0.048 seconds for fastthreadpool.map. Results are save in done queue.
+ 0.494 seconds for fastthreadpool.submit. Results are save in done queue.
  0.111 seconds for multiprocessing.pool.ThreadPool.map_async.
  21.280 seconds for multiprocessing.pool.ThreadPool.apply_async.
+
+fastthreadpool.map is **2,3** x faster than multiprocessing.pool.ThreadPool.map_async.
+fastthreadpool.submit is **43** x faster than multiprocessing.pool.ThreadPool.apply_async.

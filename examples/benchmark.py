@@ -1,9 +1,11 @@
 
+import os
 import sys
 import time
 import threading
 import fastthreadpool
 from multiprocessing.pool import ThreadPool
+import lz4.block
 import zstd
 import msgpack
 if sys.version_info[0] > 2:
@@ -22,11 +24,11 @@ class TestSemaphore(object):
         s.release()
 
     def fastthreadpool_Semaphore(self, values):
-        s = fastthreadpool.Semaphore()
+        s = fastthreadpool.Semaphore(0)
         for _ in values:
             s.release()
             s.acquire()
-        return 0
+        return s.value
 
     def threading_Semaphore(self, values):
         s = threading.Semaphore(0)
@@ -44,7 +46,7 @@ class TestSemaphore(object):
             else:
                 pool.submit(self.acquire_cb, s)
         pool.shutdown()
-        return s._value
+        return s.value
 
     def threading_Semaphore_threads(self, values):
         s = threading.Semaphore(0)
@@ -145,12 +147,26 @@ class TestValues(object):
         pool.shutdown()
         self.result = sum(pool.done)
 
+    def submit_result_id(self, data):
+        pool = fastthreadpool.Pool(result_id = True)
+        for value in data:
+            pool.submit(self.worker, value)
+        pool.shutdown()
+        self.result = sum([ result[1] for result in pool.done ])
+
     def submit_gen(self, data):
         pool = fastthreadpool.Pool()
         for value in data:
             pool.submit(self.worker_gen, value)
         pool.shutdown()
         self.result = sum(pool.done)
+
+    def submit_gen_result_id(self, data):
+        pool = fastthreadpool.Pool(result_id = True)
+        for value in data:
+            pool.submit(self.worker_gen, value)
+        pool.shutdown()
+        self.result = sum([ result[1] for result in pool.done ])
 
     def submit_pool_done_cb(self, data):
         with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
@@ -197,7 +213,7 @@ class TestValues(object):
         pool.join()
 
     def ThreadPoolExecutor_map(self, data):
-        pool = ThreadPoolExecutor()
+        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
         results = pool.map(self.worker, data)
         pool.shutdown()
         self.result = sum(results)
@@ -205,7 +221,7 @@ class TestValues(object):
     def ThreadPoolExecutor_submit_done_cb(self, data):
         # Important: The result function is executed in the worker thread. So we need a
         #   lock in the result function!
-        pool = ThreadPoolExecutor()
+        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
         for value in data:
             future = pool.submit(self.worker, value)
             future.add_done_callback(self.locked_result_future_cb)
@@ -239,7 +255,9 @@ class TestValues(object):
         self.test("map_gen_done_cb", values)
         self.test("map_gen_failed_cb", values)
         self.test("submit", values)
+        self.test("submit_result_id", values)
         self.test("submit_gen", values)
+        self.test("submit_gen_result_id", values)
         self.test("submit_pool_done_cb", values)
         self.test("submit_gen_pool_done_cb", values)
         self.test("submit_pool_failed_cb", values)
@@ -262,33 +280,33 @@ class TestLists(object):
         self.lock = threading.Lock()
 
     def worker_cb(self, data):
-        return data
+        return sum(data)
 
     def worker_gen_cb(self, data):
-        yield data
+        yield sum(data)
 
     def failed_cb(self, exc):
         print(exc)
 
     def result_cb(self, result):
-        self.result += sum(result)
+        self.result += result
 
     def locked_result_cb(self, result):
         with self.lock:
-            self.result += sum(result)
+            self.result += result
 
     def results_cb(self, results):
-        self.result += sum([ sum(result) for result in results ])
+        self.result += sum(results)
 
     def locked_result_future_cb(self, result):
         with self.lock:
-            self.result += sum(result.result())
+            self.result += result.result()
 
     def map(self, data):
         pool = fastthreadpool.Pool()
         pool.map(self.worker, data)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in pool.done ])
+        self.result = sum(pool.done)
 
     def map_done_cb(self, data):
         pool = fastthreadpool.Pool(done_callback = self.result_cb)
@@ -299,13 +317,13 @@ class TestLists(object):
         pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
         pool.map(self.worker, data)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in pool.done ])
+        self.result = sum(pool.done)
 
     def map_gen(self, data):
         pool = fastthreadpool.Pool()
         pool.map(self.worker_gen, data)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in pool.done ])
+        self.result = sum(pool.done)
 
     def map_gen_done_cb(self, data):
         pool = fastthreadpool.Pool(done_callback = self.result_cb)
@@ -316,14 +334,14 @@ class TestLists(object):
         pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
         pool.map(self.worker_gen, data)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in pool.done ])
+        self.result = sum(pool.done)
 
     def submit(self, data):
         pool = fastthreadpool.Pool()
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in pool.done ])
+        self.result = sum(pool.done)
 
     def submit_done_cb(self, data):
         pool = fastthreadpool.Pool(done_callback = self.result_cb)
@@ -336,14 +354,14 @@ class TestLists(object):
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in pool.done ])
+        self.result = sum(pool.done)
 
     def ThreadPool_map(self, data):
         pool = ThreadPool()
         results = pool.map(self.worker, data)
         pool.close()
         pool.join()
-        self.result = sum([ sum(result) for result in results ])
+        self.result = sum(results)
 
     def ThreadPool_map_async_done_cb(self, data):
         pool = ThreadPool()
@@ -359,13 +377,13 @@ class TestLists(object):
         pool.join()
 
     def ThreadPoolExecutor_map(self, data):
-        pool = ThreadPoolExecutor()
+        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
         results = pool.map(self.worker, data)
         pool.shutdown()
-        self.result = sum([ sum(result) for result in results ])
+        self.result = sum(results)
 
     def ThreadPoolExecutor_submit_done_cb(self, data):
-        pool = ThreadPoolExecutor()
+        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
         for value in data:
             future = pool.submit(self.worker, value)
             future.add_done_callback(self.locked_result_future_cb)
@@ -416,21 +434,20 @@ class TestCompress(object):
         self.lock = threading.Lock()
 
     def compress_cb(self, data):
-        return zstd.ZstdCompressor(write_content_size = True, write_checksum = True,
-                                   level = 14).compress(data)
+        return zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(data)
+        #return lz4.block.compress(data)
 
     def compress_gen_cb(self, data):
-        yield zstd.ZstdCompressor(write_content_size = True, write_checksum = True,
-                                  level = 14).compress(data)
+        yield zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(data)
+        #yield lz4.block.compress(data)
 
     def pack_compress_cb(self, data):
-        result = zstd.ZstdCompressor(write_content_size = True, write_checksum = True,
-                                   level = 14).compress(msgpack.packb(data))
-        return result
+        return zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(msgpack.packb(data, use_bin_type = True))
+        #return lz4.block.compress(msgpack.packb(data, use_bin_type = True))
 
     def pack_compress_gen_cb(self, data):
-        yield zstd.ZstdCompressor(write_content_size = True, write_checksum = True,
-                                  level = 14).compress(msgpack.packb(data))
+        yield zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(msgpack.packb(data, use_bin_type = True))
+        #yield lz4.block.compress(msgpack.packb(data, use_bin_type = True))
 
     def failed_cb(self, exc):
         print(exc)
@@ -520,13 +537,13 @@ class TestCompress(object):
         pool.join()
 
     def ThreadPoolExecutor_map(self, data):
-        pool = ThreadPoolExecutor()
+        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
         results = pool.map(self.worker, data)
         pool.shutdown()
         self.result = list(results)
 
     def ThreadPoolExecutor_submit_done_cb(self, data):
-        pool = ThreadPoolExecutor()
+        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
         for value in data:
             future = pool.submit(self.worker, value)
             future.add_done_callback(self.locked_result_future_cb)
@@ -577,7 +594,7 @@ class TestCompress(object):
 
     def run_pack_compress(self, n, cnt):
         print("\nPack and compress %d times %d values:" % (cnt, n))
-        values = [ list(range(n)) for _ in range(cnt) ]
+        values = [ { "TEST" : [ list(range(n)), list(range(n)) ] } for _ in range(cnt) ]
         self.result = []
         t = time.time()
         for value in values:
@@ -602,16 +619,16 @@ class TestCompress(object):
         self.test_pack_compress("ThreadPoolExecutor_submit_done_cb", values)
 
     def run(self, n, cnt):
-        self.run_compress(n, cnt)
+        #self.run_compress(10 * n, cnt)
         self.run_pack_compress(n, cnt)
 
 
 if __name__ == "__main__":
     #test = TestSemaphore()
+    #test.run(100000)
+    #test = TestValues()
     #test.run(1000000)
-    test = TestValues()
-    test.run(1000000)
-    test = TestLists()
-    test.run(20000, 10000)
+    #test = TestLists()
+    #test.run(20000, 10000)
     test = TestCompress()
     test.run(1000, 10000)

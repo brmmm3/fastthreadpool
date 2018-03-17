@@ -5,27 +5,72 @@ https://packaging.python.org/en/latest/distributing.html
 https://github.com/brmmm3/fastthreadpool
 """
 
-# Always prefer setuptools over distutils
-from setuptools import setup, find_packages
+import os
+import sys
 # To use a consistent encoding
 from codecs import open
-from os import path
+from os import path, listdir
 
-here = path.abspath(path.dirname(__file__))
+from setuptools import find_packages
+try:
+    from setuptools import setup
+    from setuptools import Extension
+except ImportError:
+    from distutils.core import setup
+    from distutils.extension import Extension
+
+from Cython.Distutils import build_ext
+import Cython.Compiler.Version
+
+from pyorcy import extract_cython
+
+BASEDIR = os.path.abspath(os.path.dirname(__file__))
+PKGNAME = 'fastthreadpool'
+PKGDIR = os.path.join(BASEDIR, PKGNAME)
+
+for filename in os.listdir(PKGDIR):
+    if filename.endswith(".pyx") or filename.endswith(".pyx"):
+        os.remove(os.path.join(PKGDIR, filename))
+
+extract_cython(os.path.join(PKGDIR, 'fastthreadpool.py'))
+
+MODULES = [filename[:-4] for filename in os.listdir(PKGDIR)
+           if filename.endswith('.pyx')]
 
 # Get the long description from the README file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = f.read()
+with open(os.path.join(BASEDIR, 'README.rst'), encoding='utf-8') as F:
+    long_description = F.read()
+
+print("building with Cython " + Cython.Compiler.Version.version)
+
+
+class build_ext_subclass(build_ext):
+
+    def build_extensions(self):
+        if self.compiler.compiler_type == "msvc":
+            for extension in self.extensions:
+                extension.extra_compile_args = ["/O2", "/EHsc"]
+        else:
+            for extension in self.extensions:
+                extension.extra_compile_args = ["-O2"]
+        build_ext.build_extensions(self)
+
+
+ext_modules = [
+    Extension(module_name,
+              sources=[os.path.join(PKGDIR, module_name+".pyx")],
+              language = "c++")
+    for module_name in MODULES]
 
 
 setup(
     name='fastthreadpool',
-    version='1.0.6',
+    version='1.1.0',
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
 
     url='https://github.com/brmmm3/fastthreadpool',
-    download_url = 'https://github.com/brmmm3/fastthreadpool/archive/fastthreadpool-1.0.6.tar.gz',
+    download_url = 'https://github.com/brmmm3/fastthreadpool/archive/fastthreadpool-1.1.0.tar.gz',
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',
@@ -59,7 +104,9 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
 
-    keywords='fast threading pool',
+    keywords='fast threading thread pool',
     #py_modules=["fastthreadpool"],
-    packages=find_packages(exclude=['examples', 'doc', 'tests']),
+    #packages=find_packages(exclude=['examples', 'doc', 'tests']),
+    ext_modules = ext_modules,
+    cmdclass={ 'build_ext': build_ext_subclass }
 )

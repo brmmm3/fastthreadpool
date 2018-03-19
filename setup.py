@@ -20,16 +20,17 @@ except ImportError:
     from distutils.extension import Extension
 
 from Cython.Distutils import build_ext
+from Cython.Build import cythonize
 import Cython.Compiler.Version
 
 from pyorcy import extract_cython
 
-BASEDIR = os.path.abspath(os.path.dirname(__file__))
+BASEDIR = os.path.dirname(__file__)
 PKGNAME = 'fastthreadpool'
 PKGDIR = os.path.join(BASEDIR, PKGNAME)
 
 for filename in os.listdir(PKGDIR):
-    if filename.endswith(".pyx") or filename.endswith(".pyx"):
+    if filename.endswith(".cpp") or filename.endswith(".pyx") or filename.endswith(".html"):
         os.remove(os.path.join(PKGDIR, filename))
 
 extract_cython(os.path.join(PKGDIR, 'fastthreadpool.py'))
@@ -55,12 +56,12 @@ class build_ext_subclass(build_ext):
                 extension.extra_compile_args = ["-O2"]
         build_ext.build_extensions(self)
 
-if "annotate" in sys.argv:
-    from Cython.Build import cythonize
-    setup(
-      name = 'fastthreadpool',
-      ext_modules = cythonize("fastthreadpool/*.pyx", language_level = 3, annotate = True,
-                              language = "c++", exclude = ["setup.py"]))
+annotate = "annotate" in sys.argv
+
+cythonize("fastthreadpool/*.pyx", language_level = 3, annotate = annotate,
+          language = "c++", exclude = ["setup.py"])
+
+if annotate:
     sys.exit(0)
 
 ext_modules = [
@@ -72,37 +73,28 @@ ext_modules = [
 
 setup(
     name='fastthreadpool',
-    version='1.2.0',
+    version='1.2.3',
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
+    long_description_content_type='text/x-rst',
 
     url='https://github.com/brmmm3/fastthreadpool',
-    download_url = 'https://github.com/brmmm3/fastthreadpool/releases/download/1.2.0/fastthreadpool-1.2.0.tar.gz',
+    download_url = 'https://github.com/brmmm3/fastthreadpool/releases/download/1.2.3/fastthreadpool-1.2.3.tar.gz',
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',
     license='MIT',
 
-    # Classifiers help users find your project by categorizing it.
-    #
-    # For a list of valid classifiers, see
-    # https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[  # Optional
-        # How mature is this project? Common values are
-        #   3 - Alpha
-        #   4 - Beta
-        #   5 - Production/Stable
         'Development Status :: 4 - Beta',
 
-        # Indicate who your project is intended for
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
 
-        # Pick your license as you wish
         'License :: OSI Approved :: MIT License',
 
-        # Specify the Python versions you support here. In particular, ensure
-        # that you indicate whether you support Python 2, Python 3 or both.
+        'Operating System :: OS Independent',
+
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
@@ -112,8 +104,9 @@ setup(
     ],
 
     keywords='fast threading thread pool',
-    #py_modules=["fastthreadpool"],
-    #packages=find_packages(exclude=['examples', 'doc', 'tests']),
+    include_package_data=True,
+    #packages=find_packages(where='fastthreadpool', exclude=['examples', 'doc', 'tests']),
+    #exclude_package_data={'fastthreadpool': ['fastthreadpool.pyx']},
     ext_modules = ext_modules,
     cmdclass={ 'build_ext': build_ext_subclass }
 )

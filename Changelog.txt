@@ -3,6 +3,7 @@ Added submit_at and submit_done_at to schedule jobs at a specific time with
 an optional interval.
 schedule now returns a TimerObj object which contains the current timer id.
 To cancel a job supply the TimerObj to the cancel function.
+Added option 'soon' to shutdown.
 
 1.1.0:
 Problem fixed when having more than one instance of the thread pool.

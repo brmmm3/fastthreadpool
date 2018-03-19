@@ -43,7 +43,7 @@ DEFAULT_LOGGING_FORMAT = '[%(levelname)s/%(processName)s] %(message)s'
 
 def shutdown():
     for pool in _pools:
-        pool.shutdown_set()
+        pool.shutdown_children()
         pool.cancel(None, True)
         pool.shutdown()
 
@@ -196,7 +196,7 @@ class Pool(object): #p
     #c cdef FastLock _busy_lock
     #c cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed
     #c cdef Semaphore _done_cnt, _failed_cnt
-    #c cdef bint _shutdown
+    #c cdef bint _shutdown, _shutdown_children
     #c cdef object logger
     #c cdef object _thr_done, _thr_failed
 
@@ -228,6 +228,7 @@ class Pool(object): #p
         self._failed = deque()
         self._done_cnt = Semaphore(0)
         self._failed_cnt = Semaphore(0)
+        self._shutdown_children = False
         self._shutdown = False
         self.logger = None
         if done_callback:
@@ -326,7 +327,7 @@ class Pool(object): #p
                     pop_failed = True
                     job = jobs_popleft()
                     pop_failed = False
-                    if job is None:
+                    if job is None or self._shutdown_children:
                         self._job_cnt.release()
                         run_child = False
                         break
@@ -367,7 +368,7 @@ class Pool(object): #p
 
     #c cdef object _submit(self, fn, done_callback, args, kwargs, bint high_priority) except +:
     def _submit(self, fn, done_callback, args, kwargs, high_priority): #p
-        if self._shutdown:
+        if self._shutdown_children:
             raise PoolStopped("Pool not running")
         if (self._busy_cnt >= self._child_cnt) and (self._child_cnt < self.max_children):
             self._child_cnt += 1
@@ -493,7 +494,7 @@ class Pool(object): #p
         failed = self._failed
         done_popleft = done.popleft
         failed_popleft = failed.popleft
-        while not self._shutdown:
+        while self._busy_cnt or len(self._jobs):
             do_sleep = True
             while done:
                 yield done_popleft()
@@ -501,7 +502,7 @@ class Pool(object): #p
             while failed:
                 yield failed_popleft()
                 do_sleep = False
-            if (self._busy_cnt == 0) or wait is False or ((to > 0.0) and (time() > pyto)):
+            if wait is False or ((to > 0.0) and (time() > pyto)):
                 return
             if do_sleep:
                 sleep(0.01)
@@ -515,7 +516,7 @@ class Pool(object): #p
         _failed_append = self._failed.append
         if done_callback is False:
             for args in itr:
-                if self._shutdown:
+                if self._shutdown_children:
                     break
                 try:
                     fn(args)
@@ -524,7 +525,7 @@ class Pool(object): #p
                     self._failed_cnt.release()
         elif done_callback is True:
             for args in itr:
-                if self._shutdown:
+                if self._shutdown_children:
                     break
                 try:
                     _done_append(fn(args))
@@ -534,7 +535,7 @@ class Pool(object): #p
                     self._failed_cnt.release()
         elif callable(done_callback):
             for args in itr:
-                if self._shutdown:
+                if self._shutdown_children:
                     break
                 try:
                     done_callback(fn(args))
@@ -552,7 +553,7 @@ class Pool(object): #p
         _failed_append = self._failed.append
         if done_callback is False:
             for args in itr:
-                if self._shutdown:
+                if self._shutdown_children:
                     break
                 try:
                     for _ in fn(args):
@@ -562,7 +563,7 @@ class Pool(object): #p
                     self._failed_cnt.release()
         elif done_callback is True:
             for args in itr:
-                if self._shutdown:
+                if self._shutdown_children:
                     break
                 try:
                     for result in fn(args):
@@ -573,7 +574,7 @@ class Pool(object): #p
                     self._failed_cnt.release()
         elif callable(done_callback):
             for args in itr:
-                if self._shutdown:
+                if self._shutdown_children:
                     break
                 try:
                     for result in fn(args):
@@ -586,7 +587,7 @@ class Pool(object): #p
     def map(self, fn, itr, done_callback = True):
         #c cdef int itr_cnt, chunksize
         #c cdef object pychunksize
-        if self._shutdown:
+        if self._shutdown_children:
             raise PoolStopped("Pool not running")
         for child in tuple(self.children):
             if not child.is_alive():
@@ -608,7 +609,7 @@ class Pool(object): #p
             self.children.add(thrChild)
 
     def clear(self):
-        self._shutdown = False
+        self._shutdown_children = False
         self._jobs.clear()
         self._done.clear()
         self._done_cnt = Semaphore(0)
@@ -659,17 +660,21 @@ class Pool(object): #p
                 if not timeout is None:
                     raise TimeoutError("Failed to join thread %s" % thread.name)
             except KeyboardInterrupt:
+                self._shutdown_children = True
                 self._shutdown = True
                 raise
             except:
                 pass
 
-    def shutdown_set(self):
-        self._shutdown = True
+    def shutdown_children(self):
+        self._shutdown_children = True
 
-    def shutdown(self, timeout = None):
+    def shutdown(self, timeout = None, soon = False):
         for _ in range(len(self.children)):
-            self._jobs_append(None)
+            if soon:
+                self._jobs.appendleft(None)
+            else:
+                self._jobs_append(None)
         self._job_cnt.release()
         t = None if timeout is None else time() + timeout
         for thread in tuple(self.children):
@@ -678,12 +683,11 @@ class Pool(object): #p
             self._delayed_cancel()
         if self.children:
             return False
+        self._shutdown = True
         if not self._thr_done is None:
-            self._shutdown = True
             self._done_cnt.release()
             self._join_thread(self._thr_done, t, timeout)
         if not self._thr_failed is None:
-            self._shutdown = True
             self._failed_cnt.release()
             self._join_thread(self._thr_failed, t, timeout)
         return True

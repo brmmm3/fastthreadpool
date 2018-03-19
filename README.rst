@@ -40,8 +40,7 @@ A thread pool object which controls a pool of worker threads to which jobs can b
 ``submit(fn, *args, **kwargs)``
 *******************************
 
-Submit a single job to the pool. **fn** is the function to call and ***args** and ****kwargs** the arguments.
-The job will be added to the **end** of the job queue.
+Submit a single job to the pool. **fn** is the function to call and **args** and **kwargs** the arguments. The job will be added to the **end** of the job queue.
 
 The return value is an id which is the same as the first entry in the result if result_id is set. If the job needs to be removed from the queue this id has to be supplied to the cancel function.
 
@@ -110,6 +109,10 @@ A property which returns the queue for scheduled jobs. The return type is a dequ
 ``as_completed(wait = None)``
 *****************************
 
+Return an iterator, whose values, when waited for, are the worker results or exceptions in case of failed execution of the worker.
+
+ **wait** if None then wait until all jobs are done. If False then return all finished and failed jobs since last call. If the value is an integer or a float and greater than 0 then as_completed will wait for the specified time.
+
 ``map(fn, itr, done_callback = True)``
 **************************************
 
@@ -121,12 +124,13 @@ If **done_callback** is **True** then the results of the callback function are a
 
 Set **done_callback** to **False** to save memory and processing time if the results are not needed.
 
-If **done_callback** is a **callable** then for every result done_callback will be called. Please note that done_callback needs to be thread safe!
+If **done_callback** is a **callable** then for every result done_callback will be called.
+Please note that done_callback needs to be thread safe!
 
-``shutdown(timeout = None)``
-****************************
+``shutdown(timeout = None, soon = False)``
+******************************************
 
-Shutdown the thread pool. If **timeout** is None wait endless else wait up to **timeout** seconds.
+Shutdown the thread pool. If **timeout** is None wait endless else wait up to **timeout** seconds. If **soon** is True then all pending jobs are skipped.
 
 ``cancel()``
 ************
@@ -136,8 +140,7 @@ Cancel all remaining jobs. For joining all worker threads call **shutdown** afte
 ``clear()``
 ***********
 
-Clear the queues for the pending, done and failed jobs. Also clear the internal shutdown flag.
-After resetting the internal queues and flags the thread pool can be reused.
+Clear the queues for the pending, done and failed jobs. Also clear the internal shutdown flag. After resetting the internal queues and flags the thread pool can be reused.
 
 ``alive``
 *********
@@ -182,8 +185,7 @@ A property which returns a semaphore for the failed queue. It can be used to wai
 ``shutdown(timeout = None)``
 ****************************
 
-Shutdown the thread pool. A timeout in seconds can be specified. The function returns False if a timeout was specified
-and the child threads are still busy. In case of a successfull shutdown True is returned.
+Shutdown the thread pool. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successfull shutdown True is returned.
 
 ``cancel(jobid = None, timer = None)``
 **************************************

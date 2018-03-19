@@ -55,6 +55,13 @@ class build_ext_subclass(build_ext):
                 extension.extra_compile_args = ["-O2"]
         build_ext.build_extensions(self)
 
+if "annotate" in sys.argv:
+    from Cython.Build import cythonize
+    setup(
+      name = 'fastthreadpool',
+      ext_modules = cythonize("fastthreadpool/*.pyx", language_level = 3, annotate = True,
+                              language = "c++", exclude = ["setup.py"]))
+    sys.exit(0)
 
 ext_modules = [
     Extension(module_name,
@@ -65,12 +72,12 @@ ext_modules = [
 
 setup(
     name='fastthreadpool',
-    version='1.1.0',
+    version='1.2.0',
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
 
     url='https://github.com/brmmm3/fastthreadpool',
-    download_url = 'https://github.com/brmmm3/fastthreadpool/archive/fastthreadpool-1.1.0.tar.gz',
+    download_url = 'https://github.com/brmmm3/fastthreadpool/releases/download/1.2.0/fastthreadpool-1.2.0.tar.gz',
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',
@@ -110,3 +117,4 @@ setup(
     ext_modules = ext_modules,
     cmdclass={ 'build_ext': build_ext_subclass }
 )
+

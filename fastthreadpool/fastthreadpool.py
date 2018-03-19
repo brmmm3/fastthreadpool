@@ -19,7 +19,7 @@ from inspect import isgeneratorfunction
 from threading import Thread, Timer
 from threading import Lock #p
 from itertools import islice
-from time import time, sleep
+from time import time, sleep, mktime, struct_time
 from collections import deque
 if sys.version_info[0] > 2:
     from os import cpu_count
@@ -175,6 +175,13 @@ class Semaphore(object): #p
 
     def __exit__(self, t, v, tb):
         self.release()
+
+
+class TimerObj(object):
+
+    def __init__(self):
+        self._timer_id = None   # Old timer id
+        self.timer_id = None
 
 
 #c cdef class Pool:
@@ -395,7 +402,7 @@ class Pool(object): #p
         self._submit(fn, done_callback, args, kwargs, True)
         self._delayed.remove(timer_obj[0])
 
-    #c cdef object _submit_later(self, delay, fn, done_callback, args, kwargs):
+    #c cdef object _submit_later(self, delay, fn, done_callback, args, kwargs) except +:
     def _submit_later(self, delay, fn, done_callback, args, kwargs): #p
         timer_obj = [ None ]
         timer = Timer(delay, self._submit_later_do, ( timer_obj, fn, done_callback, args, kwargs ))
@@ -410,23 +417,54 @@ class Pool(object): #p
     def submit_done_later(self, delay, fn, done_callback, *args, **kwargs):
         return self._submit_later(delay, fn, done_callback, args, kwargs)
 
+    #c cdef object _submit_at(self, _time, interval, fn, done_callback, args, kwargs) except +:
+    def _submit_at(self, _time, interval, fn, done_callback, args, kwargs): #p
+        if isinstance(_time, struct_time):
+            _time = mktime(_time)
+        now = time()
+        if _time < now:
+            raise ValueError("_time has invalid value!")
+        timer_obj = TimerObj()
+        timer = Timer(_time - now, self._schedule_do, ( timer_obj, _time - interval, interval,
+                                                        fn, done_callback, args, kwargs ))
+        timer_obj.timer_id = timer
+        self._scheduled.append(timer)
+        timer.start()
+        return timer_obj
+
+    def submit_at(self, _time, interval, fn, *args, **kwargs):
+        return self._submit_at(_time, interval, fn, True, args, kwargs)
+
+    def submit_done_at(self, _time, interval, fn, done_callback, *args, **kwargs):
+        return self._submit_at(_time, interval, fn, done_callback, args, kwargs)
+
     @property
     def delayed(self):
         return self._delayed
 
-    def _schedule_do(self, timer_obj, interval, fn, done_callback, args, kwargs):
+    def _schedule_do(self, timer_obj, _time, interval, fn, done_callback, args, kwargs):
         self._submit(fn, done_callback, args, kwargs, True)
-        self._delayed.remove(timer_obj[0])
-        self._schedule(interval, fn, done_callback, args, kwargs)
+        self._scheduled.remove(timer_obj.timer_id)
+        if interval <= 0.0:
+            return
+        now = time()
+        dt = interval - (now - _time - interval)
+        timer = Timer(dt, self._schedule_do, ( timer_obj, now, interval, fn,
+                                               done_callback, args, kwargs ))
+        timer_obj._timer_id = timer_obj.timer_id
+        timer_obj.timer_id = timer
+        self._scheduled.append(timer)
+        timer.start()
 
     #c cdef object _schedule(self, interval, fn, done_callback, args, kwargs):
     def _schedule(self, interval, fn, done_callback, args, kwargs): #p
-        timer_obj = [ None ]
-        timer = Timer(interval, self._schedule_do, ( timer_obj, interval, fn, done_callback, args, kwargs ))
-        timer_obj[0] = timer
-        timer.start()
+        timer_obj = TimerObj()
+        timer = Timer(interval, self._schedule_do, ( timer_obj, time(), interval,
+                                                     fn, done_callback, args, kwargs ))
+        timer_obj.timer_id = timer
         self._scheduled.append(timer)
-        return timer
+        timer.start()
+        return timer_obj
 
     def schedule(self, interval, fn, *args, **kwargs):
         return self._schedule(interval, fn, True, args, kwargs)
@@ -662,10 +700,21 @@ class Pool(object): #p
             timer.cancel()
         self._scheduled.clear()
 
-    def cancel(self, jobid = None, timer = None):
+    def cancel(self, job_id = None, timer = None):
         if timer is True:
             self._delayed_cancel()
             self._scheduled_cancel()
+        elif isinstance(timer, TimerObj):
+            try:
+                timer.timer_id.cancel()
+                self._scheduled.remove(timer.timer_id)
+            except:
+                pass
+            try:
+                timer._timer_id.cancel()
+                self._scheduled.remove(timer._timer_id)
+            except:
+                pass
         elif not timer is None:
             timer.cancel()
             try:
@@ -676,13 +725,13 @@ class Pool(object): #p
                 self._scheduled.remove(timer)
             except:
                 pass
-        if jobid is False:
+        if job_id is False:
             return True
-        if jobid is None:
+        if job_id is None:
             self._jobs.clear()
             return True
         for job in self._jobs:
-            if id(job) == jobid:
+            if id(job) == job_id:
                 try:
                     self._jobs.remove(job)
                     return True

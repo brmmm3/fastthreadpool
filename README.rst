@@ -43,7 +43,7 @@ A thread pool object which controls a pool of worker threads to which jobs can b
 Submit a single job to the pool. **fn** is the function to call and ***args** and ****kwargs** the arguments.
 The job will be added to the **end** of the job queue.
 
-The return value is an id which is the same as the first entry in the result if result_id is set.
+The return value is an id which is the same as the first entry in the result if result_id is set. If the job needs to be removed from the queue this id has to be supplied to the cancel function.
 
 ``submit_done(fn, done_callback, *args, **kwargs)``
 ***************************************************
@@ -73,6 +73,20 @@ The same as **submit_first** but with a delay in seconds.
 
 The same as **submit_done_first** but with a delay in seconds.
 
+``submit_at(time, interval, fn, *args, **kwargs)``
+**************************************************
+
+The same as **submit_first** but the job is scheduled at a specific time. If **interval** > 0 then the job is scheduled with this interval.
+
+ **time** is start time as float value (like time.time() value) or struct_time.
+
+ **interval** is interval in seconds as float value.
+
+``submit_done_at(time, interval, fn, *args, **kwargs)``
+*******************************************************
+
+The same as **submit_at** but with a done callback function.
+
 ``delayed``
 ***********
 
@@ -81,7 +95,7 @@ A property which returns the queue for delayed jobs. The return type is a deque.
 ``schedule(interval, fn, *args, **kwargs))``
 ********************************************
 
-Schedule a job which is called with the given interval in seconds.
+Schedule a job which is called with the given interval in seconds. The return value is a TimerObj object. The member timer_id contains the current timer object. If the timer needs to be cancelled it has to be supplied to the cancel function.
 
 ``schedule_done(interval, fn, done_callback, *args, **kwargs))``
 ****************************************************************

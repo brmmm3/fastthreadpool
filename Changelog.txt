@@ -1,3 +1,6 @@
+1.2.6:
+Fix link to archive file.
+
 1.2.5:
 Add support for quashing results for all submit methods.
 Add init_callback parameter to Pool for custom initialization of new threads.

@@ -73,13 +73,13 @@ ext_modules = [
 
 setup(
     name='fastthreadpool',
-    version='1.2.5',
+    version='1.2.6',
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
     long_description_content_type='text/x-rst',
 
     url='https://github.com/brmmm3/fastthreadpool',
-    download_url = 'https://github.com/brmmm3/fastthreadpool/releases/download/1.2.4/fastthreadpool-1.2.5.tar.gz',
+    download_url = 'https://github.com/brmmm3/fastthreadpool/releases/download/1.2.6/fastthreadpool-1.2.6.tar.gz',
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',

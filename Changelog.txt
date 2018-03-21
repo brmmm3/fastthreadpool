@@ -1,3 +1,11 @@
+1.2.5:
+Add support for quashing results for all submit methods.
+Add init_callback parameter to Pool for custom initialization of new threads.
+Improve README.
+
+1.2.4:
+Just a version update because of file-name-reuse issue on github.
+
 1.2.3:
 Some more fixes in setup.py.
 

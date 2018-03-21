@@ -15,8 +15,8 @@ all situations.
 **API**
 =======
 
-``Pool(max_children = -9999, child_name_prefix = "", done_callback = None, failed_callback = None, log_level = None, result_id = False)``
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+``Pool(max_children = -9999, child_name_prefix = "", init_callback = None, done_callback = None, failed_callback = None, log_level = None, result_id = False)``
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 A thread pool object which controls a pool of worker threads to which jobs can be submitted. It supports asynchronous results with optional callbacks, submitting jobs with delayed execution, scheduling jobs with a repeating interval and has a parallel map implementation.
 
@@ -27,11 +27,13 @@ A thread pool object which controls a pool of worker threads to which jobs can b
 
  **max_children** defines the maximum number of child threads. If the value is equal or less than the default value the maximum number of child threads is the number of CPU cores. If the value is greater than 0 then it defines the absolute maximum number of child threads. If the value is equal or less than 0 then the maximum number of child threads is the number of CPU cores plus the parameter value. Child threads are only created on demand.
 
- **child_name_prefix** if set the child threads get this prefix for their names. If omitted the default prefix is *ThreadPool*.
+ **child_name_prefix** if set the child threads get this prefix for their names. If omitted the default prefix is `ThreadPool`.
 
- **done_callback** if defined for every result this callback function is called. It is important to know that the callback function is executed in it's *own thread context*!
+ **init_callback** if set it is called with the new thread object as parameter before the thread is started.
 
- **failed_callback** if defined for every failed execution of the worker functions the callback function is called. It is important to know that the callback function is executed in it's *own thread context*!
+ **done_callback** if defined for every result this callback function is called. It is important to know that the callback function is executed in it's *own single thread context*. If a done_callback is supplied in `submit_done` or `map` then this callback function is called for every result in the *same thread context as the worker thread*.
+
+ **failed_callback** if defined for every failed execution of the worker functions the callback function is called. It is important to know that the callback function is executed in it's *own single thread context*.
 
  **log_level** if defined for every failed execution of the worker functions the exception is logged.
 
@@ -48,6 +50,13 @@ The return value is an id which is the same as the first entry in the result if 
 ***************************************************
 
 The same as **submit** but with an individual done callback function.
+
+If **done_callback** is **True** then the results of the callback function are appended to the **done** queue.
+
+Set **done_callback** to **False** to save memory and processing time if the results are not needed.
+
+If **done_callback** is a **callable** then for every result done_callback will be called.
+Please note that done_callback needs to be thread safe!
 
 ``submit_first(fn, *args, **kwargs)``
 *************************************
@@ -294,6 +303,18 @@ Results with successful execution were saved in the **done** queue, with failed 
  pool.shutdown()
 
 This is a more complex example which shows some of the features of fastthreadpool. First 100 jobs with foo1 and a counter are submitted. Then a job is submitted to the beginning of the job queue. Then the job with foo1 and i=99 is cancelled. Then a job is scheduled for a one time execution in 0.1 seconds. Finally a job is scheduled for repeated execution in a 1 second interval.
+
+The next example shows a use case of an initialization callback function::
+
+ def worker(compressed_data):
+     return current_thread().Z.decompress(compressed_data)
+
+ def cbInit(ctx):
+     ctx.Z = zstd.ZstdDecompressor()
+
+ pool = fastthreadpool.Pool(init_callback = cbInit)
+ for data in iterable:
+     pool.submit(worker, data)
 
 **Benchmarks**
 ==============

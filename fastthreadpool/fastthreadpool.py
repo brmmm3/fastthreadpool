@@ -198,11 +198,12 @@ class Pool(object): #p
     #c cdef Semaphore _done_cnt, _failed_cnt
     #c cdef bint _shutdown, _shutdown_children
     #c cdef object logger
+    #c cdef object init_callback
     #c cdef object _thr_done, _thr_failed
 
-    #c def __cinit__(self, int max_children = -9999, child_name_prefix = "",
+    #c def __cinit__(self, int max_children = -9999, str child_name_prefix = "", init_callback = None,
     #c               done_callback = None, failed_callback = None, int log_level = 0, bint result_id = False):
-    def __init__(self, max_children = -9999, child_name_prefix = "", #p
+    def __init__(self, max_children = -9999, child_name_prefix = "", init_callback = None, #p
                  done_callback = None, failed_callback = None, log_level = None, result_id = False): #p
         self._job_cnt = Semaphore()
         self.children = set()
@@ -231,6 +232,7 @@ class Pool(object): #p
         self._shutdown_children = False
         self._shutdown = False
         self.logger = None
+        self.init_callback = init_callback
         if done_callback:
             self._thr_done = Thread(target = self._done_thread, args = ( done_callback, ),
                                     name = "ThreadPoolDone")
@@ -332,7 +334,13 @@ class Pool(object): #p
                         run_child = False
                         break
                     fn, done_callback, args, kwargs = job
-                    if done_callback is True:
+                    if done_callback is False:
+                        if isgeneratorfunction(fn):
+                            for _ in fn(*args, **kwargs):
+                                pass
+                        else:
+                            fn(*args, **kwargs)
+                    elif done_callback is True:
                         if isgeneratorfunction(fn):
                             jobid = id(job)
                             for result in fn(*args, **kwargs):
@@ -375,6 +383,8 @@ class Pool(object): #p
             thrChild = Thread(target = self._child,
                               name = self.child_name_prefix + str(self._child_cnt))
             thrChild.daemon = True
+            if not self.init_callback is None:
+                self.init_callback(thrChild)
             thrChild.start()
             self.children.add(thrChild)
         job = ( fn, done_callback, args, kwargs )
@@ -605,6 +615,8 @@ class Pool(object): #p
             thrChild = Thread(target = cbChild, args = ( fn, islice(it, pychunksize), done_callback ),
                               name = self.child_name_prefix + str(self._child_cnt))
             thrChild.daemon = True
+            if not self.init_callback is None:
+                self.init_callback(thrChild)
             thrChild.start()
             self.children.add(thrChild)
 

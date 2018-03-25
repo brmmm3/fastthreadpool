@@ -495,7 +495,7 @@ class Pool(object): #p
             raise PoolCallback("Using done_callback!")
         if not self._thr_failed is None:
             raise PoolCallback("Using failed_callback!")
-        if isinstance(wait, ( int, float )):
+        if not wait is False and isinstance(wait, ( int, float )):
             pyto = time() + wait
             to = pyto
         else:

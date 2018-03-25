@@ -1,3 +1,6 @@
+1.2.7:
+Fix checking of type parameter wait in as_completed.
+
 1.2.6:
 Fix link to archive file.
 

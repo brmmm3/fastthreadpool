@@ -504,7 +504,7 @@ class Pool(object): #p
         failed = self._failed
         done_popleft = done.popleft
         failed_popleft = failed.popleft
-        while self._busy_cnt or len(self._jobs):
+        while self._busy_cnt or self._jobs:
             do_sleep = True
             while done:
                 yield done_popleft()
@@ -521,7 +521,6 @@ class Pool(object): #p
     def _map_child(self, fn, itr, done_callback): #p
         #c cdef bint append_done
         self._busy_lock_inc()
-        append_done = not self._thr_done is None
         _done_append = self._done.append
         _failed_append = self._failed.append
         if done_callback is False:
@@ -558,7 +557,6 @@ class Pool(object): #p
     def _imap_child(self, fn, itr, done_callback): #p
         #c cdef bint append_done
         self._busy_lock_inc()
-        append_done = not self._thr_done is None
         _done_append = self._done.append
         _failed_append = self._failed.append
         if done_callback is False:

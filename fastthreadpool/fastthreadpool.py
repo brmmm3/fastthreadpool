@@ -41,13 +41,18 @@ LOGGER_NAME = 'fastthreadpool'
 DEFAULT_LOGGING_FORMAT = '[%(levelname)s/%(processName)s] %(message)s'
 
 
-def shutdown():
+def Shutdown(now = True):
     for pool in _pools:
-        pool.shutdown_children()
-        pool.cancel(None, True)
-        pool.shutdown()
+        if now:
+            pool.shutdown_children()
+            pool.cancel(None, True)
+            pool.shutdown(None, True)
+        else:
+            pool.cancel(None, False)
+            pool.shutdown()
 
-atexit.register(shutdown)
+
+atexit.register(Shutdown)
 
 #c from cpython cimport pythread
 

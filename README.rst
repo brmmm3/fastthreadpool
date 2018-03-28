@@ -209,9 +209,9 @@ If **jobid** is a valid job id the specified job are cancelled. If specified job
 If **timer** is True all delayed and all scheduled jobs are cancelled.
 
 Shutdown(now = True):
-*********************
+"""""""""""""""""""""
 
-Global shutdown method for all fastthreadpool instances. If **now*** is True then all pending jobs are dropped.
+Global shutdown method for all fastthreadpool instances. If **now** is True then all pending jobs are dropped.
 
 Semaphore(value = 1)
 """"""""""""""""""""

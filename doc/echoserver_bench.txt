@@ -1,0 +1,73 @@
+CPU: Ryzen 7, Linux Mint 18.3, kernel 4.13.0-37-generic
+
+Too echoserver and echoclient examples from uvloop project and extended it with fastthreadpool support.
+Some benchmarks below. Impressive is the speed if the receive buffer is bigger than the sent message size.
+With a big enough buffer fastthreadpool is up to 4 times faster than uvloop with EchoProtocol!
+
+python3.6 echoserver.py --uvloop --proto
+python3.6 echoclient.py --workers 5 --times 3
+
+3000000 in 25.72452187538147
+116620.243304542 requests/sec
+
+echoserver.py: pool_echo_client with 4096 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3
+
+3000000 in 7.27349328994751
+412456.55703652266 requests/sec
+
+python3.6 echoserver.py --uvloop --proto
+python3.6 echoclient.py --workers 5 --times 3 --msize 4096
+
+3000000 in 29.3631808757782
+102168.76750143619 requests/sec
+
+echoserver.py: pool_echo_client with 8192 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3 --msize 4096
+
+3000000 in 31.37232756614685
+95625.67500529448 requests/sec
+
+echoserver.py: pool_echo_client with 8192 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3 --msize 4096
+
+3000000 in 12.30263876914978
+243850.12486287332 requests/sec
+
+echoserver.py: pool_echo_client with 4096 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3 --msize 65536
+
+3000000 in 428.21188616752625
+7005.877456718546 requests/sec
+
+echoserver.py: pool_echo_client with 65536 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3 --msize 65536
+
+3000000 in 61.57948875427246
+48717.52040636837 requests/sec
+
+echoserver.py: pool_echo_client with 2*65536 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3 --msize 65536
+
+3000000 in 59.80493211746216
+50163.08678534633 requests/sec
+
+echoserver.py: pool_echo_client with 4*65536 bytes buffer size
+python3.6 echoserver.py --pool
+python3.6 echoclient.py --workers 5 --times 3 --msize 65536
+
+3000000 in 58.558178424835205
+51231.10179820185 requests/sec
+
+python3.6 echoserver.py --uvloop --proto
+python3.6 echoclient.py --workers 5 --times 3 --msize 65536
+
+3000000 in 122.97190403938293
+24395.81645445793 requests/sec
+

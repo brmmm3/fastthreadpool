@@ -1,3 +1,7 @@
+1.2.9:
+Add method join.
+Fix method shutdown_children to release job_cnt semaphore.
+
 1.2.8:
 Fix global Shutdown method and add option 'now'.
 

@@ -191,10 +191,17 @@ A property which returns the queue for exceptions of failed jobs. The queue is a
 
 A property which returns a semaphore for the failed queue. It can be used to waiting for results without the need for polling.
 
-``shutdown(timeout = None)``
-****************************
+``join(timeout = None)``
+************************
 
-Shutdown the thread pool. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successfull shutdown True is returned.
+Wait for all client threads to finish. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successful shutdown True is returned.
+
+``shutdown(timeout = None, wait = False, soon = False)``
+********************************************************
+
+Shutdown the thread pool. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successful shutdown True is returned.
+If **wait** is True then shutdown will wait until the child threads will finish themselves. So the worker callback functions or another instance has to care about sending the child threads the finish command (call shutdown_children).
+If **soon** is True then all pending jobs are skipped.
 
 ``cancel(jobid = None, timer = None)``
 **************************************

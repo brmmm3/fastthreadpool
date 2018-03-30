@@ -367,6 +367,9 @@ class Pool(object): #p
                         else:
                             done_callback(fn(*args, **kwargs))
             except Exception as exc:
+                if self._shutdown_children:
+                    self._job_cnt.release()
+                    break
                 if pop_failed:
                     self._busy_lock_dec()
                     child_busy = False
@@ -683,14 +686,16 @@ class Pool(object): #p
 
     def shutdown_children(self):
         self._shutdown_children = True
-
-    def shutdown(self, timeout = None, soon = False):
-        for _ in range(len(self.children)):
-            if soon:
-                self._jobs.appendleft(None)
-            else:
-                self._jobs_append(None)
         self._job_cnt.release()
+
+    def shutdown(self, timeout = None, wait = False, soon = False):
+        if not wait:
+            for _ in range(len(self.children)):
+                if soon:
+                    self._jobs.appendleft(None)
+                else:
+                    self._jobs_append(None)
+            self._job_cnt.release()
         t = None if timeout is None else time() + timeout
         for thread in tuple(self.children):
             self.children.discard(self._join_thread(thread, t, timeout))
@@ -706,6 +711,9 @@ class Pool(object): #p
             self._failed_cnt.release()
             self._join_thread(self._thr_failed, t, timeout)
         return True
+
+    def join(self, timeout = None):
+        return self.shutdown(timeout, False, True)
 
     #c cdef void _delayed_cancel(self):
     def _delayed_cancel(self): #p

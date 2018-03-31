@@ -2,7 +2,7 @@ import sys
 import argparse
 import asyncio
 import gc
-import os.path
+import os
 import socket as socket_module
 import fastthreadpool
 
@@ -12,14 +12,14 @@ from socket import *
 PRINT = 0
 
 
-def pool_echo_server(loop, address, unix):
+def pool_echo_server(address, unix, threads, size):
     if unix:
         sock = socket(AF_UNIX, SOCK_STREAM)
     else:
         sock = socket(AF_INET, SOCK_STREAM)
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     sock.bind(address)
-    sock.listen(16)
+    sock.listen(threads)
     if PRINT:
         print('Server listening at', address)
     with sock:
@@ -27,21 +27,20 @@ def pool_echo_server(loop, address, unix):
             client, addr = sock.accept()
             if PRINT:
                 print('Connection from', addr)
-            pool.submit(pool_echo_client, client)
+            pool.submit(pool_echo_client, client, size)
 
 
-def pool_echo_client(client):
+def pool_echo_client(client, size):
     try:
         client.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
     except (OSError, NameError):
         pass
-    b = bytearray(4 * 65536)
+    b = bytearray(size)
     bl = [ b ]
     with client:
         try:
             while True:
-                if not client.recvmsg_into(bl)[0]:
-                    break
+                client.recvmsg_into(bl)
                 client.sendall(b)
         except:
             pass
@@ -128,6 +127,8 @@ if __name__ == '__main__':
     parser.add_argument('--addr', default='127.0.0.1:25000', type=str)
     parser.add_argument('--print', default=False, action='store_true')
     parser.add_argument('--pool', default=False, action='store_true')
+    parser.add_argument('--threads', default=os.cpu_count(), type=int)
+    parser.add_argument('--buf', default=4096, type=int)
     args = parser.parse_args()
 
     if args.uvloop:
@@ -186,8 +187,10 @@ if __name__ == '__main__':
             coro = loop.create_server(EchoProtocol, *addr)
         srv = loop.run_until_complete(coro)
     elif args.pool:
-        pool = fastthreadpool.Pool()
-        pool.submit(pool_echo_server, loop, addr, unix)
+        print("creating pool with %d threads" % args.threads)
+        print("buffer size is %d bytes" % args.buf)
+        pool = fastthreadpool.Pool(args.threads)
+        pool.submit(pool_echo_server, addr, unix, args.threads, args.buf)
         pool.join()
         sys.exit(0)
     else:

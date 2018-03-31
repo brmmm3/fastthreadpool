@@ -689,7 +689,7 @@ class Pool(object): #p
         self._job_cnt.release()
 
     def shutdown(self, timeout = None, wait = False, soon = False):
-        if not wait:
+        if not wait or soon:
             for _ in range(len(self.children)):
                 if soon:
                     self._jobs.appendleft(None)
@@ -713,7 +713,7 @@ class Pool(object): #p
         return True
 
     def join(self, timeout = None):
-        return self.shutdown(timeout, False, True)
+        return self.shutdown(timeout, True, False)
 
     #c cdef void _delayed_cancel(self):
     def _delayed_cancel(self): #p

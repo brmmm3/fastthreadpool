@@ -200,8 +200,8 @@ Wait for all client threads to finish. A timeout in seconds can be specified. Th
 ********************************************************
 
 Shutdown the thread pool. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successful shutdown True is returned.
-If **wait** is True then shutdown will wait until the child threads will finish themselves. So the worker callback functions or another instance has to care about sending the child threads the finish command (call shutdown_children).
-If **soon** is True then all pending jobs are skipped.
+If **wait** is True then shutdown will wait until the child threads will finish themselves. So the worker callback functions or another thread instance has to care about sending the child threads the finish command (call shutdown_children).
+If **soon** is True then all pending jobs are skipped. The **wait** parameter is ignored in this case.
 
 ``cancel(jobid = None, timer = None)``
 **************************************
@@ -316,7 +316,7 @@ Results with successful execution were saved in the **done** queue, with failed 
 
 This is a more complex example which shows some of the features of fastthreadpool. First 100 jobs with foo1 and a counter are submitted. Then a job is submitted to the beginning of the job queue. Then the job with foo1 and i=99 is cancelled. Then a job is scheduled for a one time execution in 0.1 seconds. Finally a job is scheduled for repeated execution in a 1 second interval.
 
-The next example shows a use case of an initialization callback function::
+Next example shows a use case of an initialization callback function::
 
  def worker(compressed_data):
      return current_thread().Z.decompress(compressed_data)
@@ -327,6 +327,36 @@ The next example shows a use case of an initialization callback function::
  pool = fastthreadpool.Pool(init_callback = cbInit)
  for data in iterable:
      pool.submit(worker, data)
+
+Next example shows a simple echo server. The echo server is extremely fast is the buffer size is big enough.
+Results have shown on a Ryzen 7 and Linux that this simple server can handle more than 400000 messages / second::
+
+ def pool_echo_server(address, threads, size):
+     sock = socket(AF_INET, SOCK_STREAM)
+     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+     sock.bind(address)
+     sock.listen(threads)
+     with sock:
+         while True:
+             client, addr = sock.accept()
+             pool.submit(pool_echo_client, client, size)
+
+ def pool_echo_client(client, size):
+     client.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+     b = bytearray(size)
+     bl = [ b ]
+     with client:
+         try:
+             while True:
+                 client.recvmsg_into(bl)
+                 client.sendall(b)
+         except:
+             pass
+
+ pool = fastthreadpool.Pool(8)
+ pool.submit(pool_echo_server, addr, 8, 4096)
+ pool.join()
+
 
 **Benchmarks**
 ==============

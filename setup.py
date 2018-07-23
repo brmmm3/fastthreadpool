@@ -9,9 +9,7 @@ import os
 import sys
 # To use a consistent encoding
 from codecs import open
-from os import path, listdir
 
-from setuptools import find_packages
 try:
     from setuptools import setup
     from setuptools import Extension
@@ -44,22 +42,34 @@ with open(os.path.join(BASEDIR, 'README.rst'), encoding='utf-8') as F:
 
 print("building with Cython " + Cython.Compiler.Version.version)
 
+annotate = "annotate" in sys.argv
+debug = "debug" in sys.argv
+if debug:
+    del sys.argv[sys.argv.index("debug")]
+
 
 class build_ext_subclass(build_ext):
 
     def build_extensions(self):
         if self.compiler.compiler_type == "msvc":
             for extension in self.extensions:
-                extension.extra_compile_args = ["/O2", "/EHsc"]
+                if debug:
+                    extension.extra_compile_args = ["/Od", "/EHsc", "-Zi"]
+                    extension.extra_link_args = ["-debug"]
+                else:
+                    extension.extra_compile_args = ["/O2", "/EHsc"]
         else:
             for extension in self.extensions:
-                extension.extra_compile_args = ["-O2"]
+                if debug:
+                    extension.extra_compile_args = ["-O0", "-g", "-ggdb"]
+                    extension.extra_link_args = ["-g"]
+                else:
+                    extension.extra_compile_args = ["-O2"]
         build_ext.build_extensions(self)
 
-annotate = "annotate" in sys.argv
 
-cythonize("fastthreadpool/*.pyx", language_level = 3, annotate = annotate,
-          language = "c++", exclude = ["setup.py"])
+cythonize("fastthreadpool/*.pyx", language_level=3, annotate=annotate,
+          language="c++", exclude=["setup.py"])
 
 if annotate:
     sys.exit(0)
@@ -67,19 +77,19 @@ if annotate:
 ext_modules = [
     Extension(module_name,
               sources=[os.path.join(PKGDIR, module_name+".pyx")],
-              language = "c++")
+              language="c++")
     for module_name in MODULES]
 
 
 setup(
     name='fastthreadpool',
-    version='1.2.10',
+    version='1.3.0',
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
     long_description_content_type='text/x-rst',
 
     url='https://github.com/brmmm3/fastthreadpool',
-    download_url = 'https://github.com/brmmm3/fastthreadpool/releases/download/1.2.10/fastthreadpool-1.2.10.tar.gz',
+    download_url='https://github.com/brmmm3/fastthreadpool/releases/download/1.3.0/fastthreadpool-1.3.0.tar.gz',
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',
@@ -107,7 +117,7 @@ setup(
     include_package_data=True,
     #packages=find_packages(where='fastthreadpool', exclude=['examples', 'doc', 'tests']),
     #exclude_package_data={'fastthreadpool': ['fastthreadpool.pyx']},
-    ext_modules = ext_modules,
-    cmdclass={ 'build_ext': build_ext_subclass }
+    ext_modules=ext_modules,
+    cmdclass={'build_ext': build_ext_subclass}, install_requires=['Cython']
 )
 

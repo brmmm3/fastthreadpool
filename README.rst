@@ -232,11 +232,6 @@ Semaphore also supports the context management protocol.
 
 This is a property to get the counter value.
 
-``locked()``
-************
-
-This is a property to get the lock state.
-
 ``acquire(blocking=True)``
 **************************
 
@@ -250,29 +245,6 @@ When invoked with blocking set to false, do not block. If a call without an argu
 *************
 
 Release a semaphore, incrementing the internal counter by one. When it was zero on entry and another thread is waiting for it to become larger than zero again, wake up that thread.
-
-FastLock()
-""""""""""
-
-This is a fast version of the standard FastLock. This class is intended for internal use in the ``fastthreadpool`` module.
-
-Lock also supports the context management protocol.
-
-``locked(self)``
-****************
-
-This is a property to get the lock state.
-
-``acquire(blocking=True)``
-**************************
-
-Acquire a lock, blocking or non-blocking.
-
-``release()``
-*************
-
-Release a lock. This can be called from any thread, not only the thread which has acquired the lock.
-
 
 **Examples**
 ==============

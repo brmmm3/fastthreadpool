@@ -49,7 +49,7 @@ LOGGER_NAME = 'fastthreadpool'
 DEFAULT_LOGGING_FORMAT = '[%(levelname)s/%(processName)s] %(message)s'
 
 
-def shutdown(now=True):
+def Shutdown(now=True):
     for pool in _pools:
         if now:
             pool.shutdown_children()
@@ -60,7 +60,7 @@ def shutdown(now=True):
             pool.shutdown()
 
 
-atexit.register(shutdown)
+atexit.register(Shutdown)
 
 #c from cpython cimport pythread
 #c from cpython.exc cimport PyErr_NoMemory

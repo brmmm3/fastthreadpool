@@ -15,8 +15,8 @@ all situations.
 **API**
 =======
 
-``Pool(max_children = -9999, child_name_prefix = "", init_callback = None, done_callback = None, failed_callback = None, log_level = None, result_id = False)``
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+``Pool(max_children=-9999, child_name_prefix="", init_callback=None, done_callback=None, failed_callback=None, log_level=None, result_id=False)``
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 A thread pool object which controls a pool of worker threads to which jobs can be submitted. It supports asynchronous results with optional callbacks, submitting jobs with delayed execution, scheduling jobs with a repeating interval and has a parallel map implementation.
 
@@ -115,15 +115,15 @@ Schedule a job which is called with the given interval in seconds.
 
 A property which returns the queue for scheduled jobs. The return type is a deque.
 
-``as_completed(wait = None)``
-*****************************
+``as_completed(wait=None)``
+***************************
 
 Return an iterator, whose values, when waited for, are the worker results or exceptions in case of failed execution of the worker.
 
  **wait** if None then wait until all jobs are done. If False then return all finished and failed jobs since last call. If the value is an integer or a float and greater than 0 then as_completed will wait for the specified time.
 
-``map(fn, itr, done_callback = True)``
-**************************************
+``map(fn, itr, done_callback=True)``
+************************************
 
 Submit a list of jobs, contained in **itr**, to the pool.
 
@@ -136,15 +136,27 @@ Set **done_callback** to **False** to save memory and processing time if the res
 If **done_callback** is a **callable** then for every result done_callback will be called.
 Please note that done_callback needs to be thread safe!
 
-``shutdown(timeout = None, soon = False)``
-******************************************
+``shutdown(timeout=None, soon=False)``
+**************************************
 
 Shutdown the thread pool. If **timeout** is None wait endless else wait up to **timeout** seconds. If **soon** is True then all pending jobs are skipped.
 
-``cancel()``
-************
+``join(timeout=None)``
+**********************
 
-Cancel all remaining jobs. For joining all worker threads call **shutdown** after **cancel**.
+Wait for all client threads to finish. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successful shutdown True is returned.
+
+``cancel(jobid=None, timer=None)``
+**********************************
+
+Cancel a single job, all jobs and/or delayed and scheduled jobs.
+If **jobid** is None all jobs, but the delayed and scheduled, are cancelled. After all jobs were cancelled True is returned.
+
+If **jobid** is False the job queue is not changed. True is returned.
+
+If **jobid** is a valid job id the specified job are cancelled. If specified job was found and cancelled True is returned, else False is returned.
+
+If **timer** is True all delayed and all scheduled jobs are cancelled.
 
 ``clear()``
 ***********
@@ -191,44 +203,20 @@ A property which returns the queue for exceptions of failed jobs. The queue is a
 
 A property which returns a semaphore for the failed queue. It can be used to waiting for results without the need for polling.
 
-``join(timeout = None)``
-************************
-
-Wait for all client threads to finish. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successful shutdown True is returned.
-
-``shutdown(timeout = None, wait = False, soon = False)``
-********************************************************
-
-Shutdown the thread pool. A timeout in seconds can be specified. The function returns False if a timeout was specified and the child threads are still busy. In case of a successful shutdown True is returned.
-If **wait** is True then shutdown will wait until the child threads will finish themselves. So the worker callback functions or another thread instance has to care about sending the child threads the finish command (call shutdown_children).
-If **soon** is True then all pending jobs are skipped. The **wait** parameter is ignored in this case.
-
-``cancel(jobid = None, timer = None)``
-**************************************
-
-Cancel a single job, all jobs and/or delayed and scheduled jobs.
-If **jobid** is None all jobs, but the delayed and scheduled, are cancelled. After all jobs were cancelled True is returned.
-
-If **jobid** is False the job queue is not changed. True is returned.
-
-If **jobid** is a valid job id the specified job are cancelled. If specified job was found and cancelled True is returned, else False is returned.
-
-If **timer** is True all delayed and all scheduled jobs are cancelled.
-
-Shutdown(now = True):
-"""""""""""""""""""""
+Shutdown(now=True):
+"""""""""""""""""""
 
 Global shutdown method for all fastthreadpool instances. If **now** is True then all pending jobs are dropped.
 
-Semaphore(value = 1)
-""""""""""""""""""""
+Semaphore(value=1)
+""""""""""""""""""
 
 This is a fast version of the standard Semaphore implemented in Python. It is more than **20 times faster**.
 
 Semaphore also supports the context management protocol.
 
-``value()``
-***********
+``value``
+*********
 
 This is a property to get the counter value.
 

@@ -1,5 +1,5 @@
 1.3.0:
-Replace FastLock by Condition and fix Semaphore.
+Remove FastLock and fix Semaphore.
 
 1.2.11:
 Fix shutdown method again and remove wait argument.

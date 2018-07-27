@@ -66,34 +66,91 @@ atexit.register(shutdown)
 #c from cpython.exc cimport PyErr_NoMemory
 
 
-#c cdef class Semaphore:
-class Semaphore(object):  #p
-    """Fast semaphore.
-    """
-    #c cdef pythread.PyThread_type_lock _lock, _value_lock
-    #c cdef int _value
+#c cdef class Condition:
+class Condition:  #p
+    #c cdef pythread.PyThread_type_lock _lock
+    #c cdef object _waiters
+    #c cdef object _waiters_append
+    #c cdef object _waiters_remove
+    #c cdef object _waiters_popleft
 
-    #c def __cinit__(self, int value=1):
-    def __init__(self, value=1):  #p
-        if value < 0:
-            raise ValueError( "Semaphore: Parameter 'value' must not be less than 0")
+    #c def __cinit__(self):
+    def __init__(self):  #p
         #c self._lock = pythread.PyThread_allocate_lock()
-        #c if not self._lock:
-        #c     raise MemoryError()
-        #c self._value_lock = pythread.PyThread_allocate_lock()
-        #c if not self._value_lock:
-        #c     raise MemoryError()
+        #c if self._lock is NULL:
+        #c     PyErr_NoMemory()
         self._lock = Lock()  #p
-        self._value_lock = Lock()  #p
-        self._value = value
+        self._waiters = deque()
+        self._waiters_append = self._waiters.append
+        self._waiters_remove = self._waiters.remove
+        self._waiters_popleft = self._waiters.popleft
 
     #c def __dealloc__(self):
     #c     if self._lock:
     #c         pythread.PyThread_free_lock(self._lock)
     #c         self._lock = NULL
-    #c     if self._value_lock:
-    #c         pythread.PyThread_free_lock(self._value_lock)
-    #c         self._value_lock = NULL
+
+    #c cdef bint _is_owned(self):
+    def _is_owned(self):  #p
+        #c if pythread.PyThread_acquire_lock(self._lock, 0):
+        if self._lock.acquire(False):  #p
+            #c pythread.PyThread_release_lock(self._lock)
+            self._lock.release()  #p
+            return False
+        return True
+
+    #c cdef void acquire(self):
+    def acquire(self):  #p
+        #c pythread.PyThread_acquire_lock(self._lock, 1)
+        self._lock.acquire()  #p
+
+    #c cdef void release(self):
+    def release(self):  #p
+        #c pythread.PyThread_release_lock(self._lock)
+        self._lock.release()  #p
+
+    #c cdef bint wait(self) except +:
+    def wait(self):  #p
+        if not self._is_owned():
+            raise RuntimeError("cannot wait on un-acquired lock")
+        waiter = Lock()
+        waiter.acquire()
+        self._waiters_append(waiter)
+        #c pythread.PyThread_release_lock(self._lock)
+        self._lock.release()  #p
+        gotit = False
+        try:
+            waiter.acquire()
+            gotit = True
+            return gotit
+        finally:
+            #c pythread.PyThread_acquire_lock(self._lock, 1)
+            self._lock.acquire()  #p
+            if not gotit:
+                try:
+                    self._waiters_remove(waiter)
+                except ValueError:
+                    pass
+
+    #c cdef void notify(self) except +:
+    def notify(self):  #p
+        if not self._is_owned():
+            raise RuntimeError("cannot notify on un-acquired lock")
+        if self._waiters:
+            self._waiters_popleft().release()
+
+
+#c cdef class Semaphore:
+class Semaphore:  #p
+    #c cdef Condition _cond
+    #c cdef int _value
+
+    #c def __cinit__(self, int value=1):
+    def __init__(self, value=1):  #p
+        if value < 0:
+            raise ValueError("semaphore initial value must be >= 0")
+        self._cond = Condition()
+        self._value = value
 
     @property
     def value(self):
@@ -101,38 +158,24 @@ class Semaphore(object):  #p
 
     #c cpdef bint acquire(self, bint blocking=True):
     def acquire(self, blocking=True):  #p
-        #c cdef int value, wait
-        #c pythread.PyThread_acquire_lock(self._value_lock, 1)
-        self._value_lock.acquire()  #p
-        self._value -= 1
-        value = self._value
-        #c pythread.PyThread_release_lock(self._value_lock)
-        self._value_lock.release()  #p
-        if value >= 0:
-            return False
-        #c with nogil:
-        if True:  #p
-            #c wait = pythread.WAIT_LOCK if blocking else pythread.NOWAIT_LOCK
-            wait = blocking  #p
-            while True:
-                #c if pythread.PyThread_acquire_lock(self._lock, wait):
-                if self._lock.acquire(wait):  #p
-                    break
-                #c if wait == pythread.NOWAIT_LOCK:
-                if not wait:  #p
-                    return False
-        return True
+        rc = False
+        self._cond.acquire()
+        while self._value == 0:
+            if not blocking:
+                break
+            self._cond.wait()
+        else:
+            self._value -= 1
+            rc = True
+        self._cond.release()
+        return rc
 
     #c cpdef void release(self):
     def release(self):  #p
-        #c pythread.PyThread_acquire_lock(self._value_lock, 1)
-        self._value_lock.acquire()  #p
+        self._cond.acquire()
         self._value += 1
-        if self._value >= 0:
-            #c pythread.PyThread_release_lock(self._lock)
-            self._lock.release()  #p
-        #c pythread.PyThread_release_lock(self._value_lock)
-        self._value_lock.release()  #p
+        self._cond.notify()
+        self._cond.release()
 
 
 class TimerObj(object):
@@ -163,7 +206,7 @@ class Pool(object):  #p
     #c               done_callback=None, failed_callback=None, int log_level=0, bint result_id=False):
     def __init__(self, max_children=-9999, child_name_prefix="", init_callback=None,  #p
                  done_callback=None, failed_callback=None, log_level=None, result_id=False):  #p
-        self._job_cnt = Semaphore(0)
+        self._job_cnt = Semaphore()
         self.children = set()
         if max_children <= -9999:
             self.max_children = cpu_count()
@@ -276,7 +319,7 @@ class Pool(object):  #p
                     break
                 self._failed_cnt.acquire()
 
-    def _child(self, num):
+    def _child(self):
         #c cdef bint run_child, pop_failed
         self._busy_lock_inc()
         child_busy = True
@@ -346,9 +389,9 @@ class Pool(object):  #p
     def _submit(self, fn, done_callback, args, kwargs, high_priority):  #p
         if self._shutdown_children:
             raise PoolStopped("Pool not running")
-        if (self._job_cnt._value >= self._child_cnt) and (self._child_cnt < self.max_children):
+        if (self._busy_cnt >= self._child_cnt) and (self._child_cnt < self.max_children):
             self._child_cnt += 1
-            thr_child = Thread(target=self._child, args = ( self._child_cnt, ),
+            thr_child = Thread(target=self._child,
                                name=self.child_name_prefix + str(self._child_cnt))
             thr_child.daemon = True
             if self.init_callback is not None:
@@ -360,8 +403,7 @@ class Pool(object):  #p
             self._jobs_appendleft(job)
         else:
             self._jobs_append(job)
-        if  self._job_cnt._value < self._child_cnt:
-            self._job_cnt.release()
+        self._job_cnt.release()
         if self.result_id:
             return id(job)
         return None
@@ -627,15 +669,17 @@ class Pool(object):  #p
     def failed_cnt(self):
         return self._failed_cnt
 
-    def _join_thread(self, thread, t):
-        #c cdef int cnt
+    def _join_thread(self, thread, t, timeout):
+        dt = None if timeout is None else max(t - _time(), 0.0)
         while True:
             try:
-                thread.join(1.0)
+                thread.join(dt)
                 if not thread.is_alive():
                     return thread
-                if t is not None and (_time() > t):
+                if timeout <= 0.0:
                     return None
+                if timeout is not None:
+                    raise TimeoutError("Failed to join thread %s" % thread.name)
             except KeyboardInterrupt:
                 self._shutdown_children = True
                 self._shutdown = True
@@ -646,29 +690,26 @@ class Pool(object):  #p
         self._job_cnt.release()
 
     def shutdown(self, timeout=None, soon=False):
-        for _ in range(self._child_cnt):
-            if soon is True:
+        for _ in self.children:
+            if soon:
                 self._jobs.appendleft(None)
-            elif soon is False:
+            else:
                 self._jobs_append(None)
-        while self._job_cnt._value <= 0:
-            self._job_cnt.release()
+        self._job_cnt.release()
         t = None if timeout is None else _time() + timeout
         for thread in tuple(self.children):
-            self.children.discard(self._join_thread(thread, t))
+            self.children.discard(self._join_thread(thread, t, timeout))
         if t is not None and (_time() > t):
             self._delayed_cancel()
         if self.children:
             return False
         self._shutdown = True
         if self._thr_done is not None:
-            while self._done_cnt._value <= 0:
-                self._done_cnt.release()
-            self._join_thread(self._thr_done, t)
+            self._done_cnt.release()
+            self._join_thread(self._thr_done, t, timeout)
         if self._thr_failed is not None:
-            while self._failed_cnt._value <= 0:
-                self._failed_cnt.release()
-            self._join_thread(self._thr_failed, t)
+            self._failed_cnt.release()
+            self._join_thread(self._thr_failed, t, timeout)
         return True
 
     def join(self, timeout=None):

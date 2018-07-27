@@ -12,7 +12,7 @@
 
 __author__ = 'Martin Bammer (mrbm74@gmail.com)'
 
-#c cdef sys, isgeneratorfunction, Lock, Thread, Timer, islice, deque, _time, sleep, cpu_count
+cdef sys, isgeneratorfunction, Lock, Thread, Timer, islice, deque, _time, sleep, cpu_count
 import sys
 import atexit
 from inspect import isgeneratorfunction
@@ -42,7 +42,7 @@ class PoolStopped(Exception):
     pass
 
 
-#c cdef set _pools
+cdef set _pools
 _pools = set()
 
 LOGGER_NAME = 'fastthreadpool'
@@ -62,77 +62,77 @@ def shutdown(now=True):
 
 atexit.register(shutdown)
 
-#c from cpython cimport pythread
-#c from cpython.exc cimport PyErr_NoMemory
+from cpython cimport pythread
+from cpython.exc cimport PyErr_NoMemory
 
 
-#c cdef class Semaphore:
-class Semaphore(object):  #p
+cdef class Semaphore:
+#p class Semaphore(object):  
     """Fast semaphore.
     """
-    #c cdef pythread.PyThread_type_lock _lock, _value_lock
-    #c cdef int _value
+    cdef pythread.PyThread_type_lock _lock, _value_lock
+    cdef int _value
 
-    #c def __cinit__(self, int value=1):
-    def __init__(self, value=1):  #p
+    def __cinit__(self, int value=1):
+    #p def __init__(self, value=1):  
         if value < 0:
             raise ValueError( "Semaphore: Parameter 'value' must not be less than 0")
-        #c self._lock = pythread.PyThread_allocate_lock()
-        #c if not self._lock:
-        #c     raise MemoryError()
-        #c self._value_lock = pythread.PyThread_allocate_lock()
-        #c if not self._value_lock:
-        #c     raise MemoryError()
-        self._lock = Lock()  #p
-        self._value_lock = Lock()  #p
+        self._lock = pythread.PyThread_allocate_lock()
+        if not self._lock:
+            raise MemoryError()
+        self._value_lock = pythread.PyThread_allocate_lock()
+        if not self._value_lock:
+            raise MemoryError()
+        #p self._lock = Lock()  
+        #p self._value_lock = Lock()  
         self._value = value
 
-    #c def __dealloc__(self):
-    #c     if self._lock:
-    #c         pythread.PyThread_free_lock(self._lock)
-    #c         self._lock = NULL
-    #c     if self._value_lock:
-    #c         pythread.PyThread_free_lock(self._value_lock)
-    #c         self._value_lock = NULL
+    def __dealloc__(self):
+        if self._lock:
+            pythread.PyThread_free_lock(self._lock)
+            self._lock = NULL
+        if self._value_lock:
+            pythread.PyThread_free_lock(self._value_lock)
+            self._value_lock = NULL
 
     @property
     def value(self):
         return self._value
 
-    #c cpdef bint acquire(self, bint blocking=True):
-    def acquire(self, blocking=True):  #p
-        #c cdef int value, wait
-        #c pythread.PyThread_acquire_lock(self._value_lock, 1)
-        self._value_lock.acquire()  #p
+    cpdef bint acquire(self, bint blocking=True):
+    #p def acquire(self, blocking=True):  
+        cdef int value, wait
+        pythread.PyThread_acquire_lock(self._value_lock, 1)
+        #p self._value_lock.acquire()  
         self._value -= 1
         value = self._value
-        #c pythread.PyThread_release_lock(self._value_lock)
-        self._value_lock.release()  #p
+        pythread.PyThread_release_lock(self._value_lock)
+        #p self._value_lock.release()  
         if value >= 0:
             return False
-        #c with nogil:
-        if True:  #p
-            #c wait = pythread.WAIT_LOCK if blocking else pythread.NOWAIT_LOCK
-            wait = blocking  #p
+        with nogil:
+        #p if True:  
+            wait = pythread.WAIT_LOCK if blocking else pythread.NOWAIT_LOCK
+            #p wait = blocking  
             while True:
-                #c if pythread.PyThread_acquire_lock(self._lock, wait):
-                if self._lock.acquire(wait):  #p
+                if pythread.PyThread_acquire_lock(self._lock, wait):
+                #p if self._lock.acquire(wait):  
                     break
-                #c if wait == pythread.NOWAIT_LOCK:
-                if not wait:  #p
+                if wait == pythread.NOWAIT_LOCK:
+                #p if not wait:  
                     return False
         return True
 
-    #c cpdef void release(self):
-    def release(self):  #p
-        #c pythread.PyThread_acquire_lock(self._value_lock, 1)
-        self._value_lock.acquire()  #p
+    cpdef void release(self):
+    #p def release(self):  
+        pythread.PyThread_acquire_lock(self._value_lock, 1)
+        #p self._value_lock.acquire()  
         self._value += 1
         if self._value >= 0:
-            #c pythread.PyThread_release_lock(self._lock)
-            self._lock.release()  #p
-        #c pythread.PyThread_release_lock(self._value_lock)
-        self._value_lock.release()  #p
+            pythread.PyThread_release_lock(self._lock)
+            #p self._lock.release()  
+        pythread.PyThread_release_lock(self._value_lock)
+        #p self._value_lock.release()  
 
 
 class TimerObj(object):
@@ -142,27 +142,27 @@ class TimerObj(object):
         self.timer_id = None
 
 
-#c cdef class Pool:
-class Pool(object):  #p
+cdef class Pool:
+#p class Pool(object):  
 
-    #c cdef Semaphore _job_cnt
-    #c cdef set children
-    #c cdef int max_children
-    #c cdef str child_name_prefix
-    #c cdef bint result_id
-    #c cdef int _child_cnt, _busy_cnt
-    #c cdef pythread.PyThread_type_lock _busy_lock
-    #c cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed
-    #c cdef Semaphore _done_cnt, _failed_cnt
-    #c cdef bint _shutdown, _shutdown_children
-    #c cdef object logger
-    #c cdef object init_callback
-    #c cdef object _thr_done, _thr_failed
+    cdef Semaphore _job_cnt
+    cdef set children
+    cdef int max_children
+    cdef str child_name_prefix
+    cdef bint result_id
+    cdef int _child_cnt, _busy_cnt
+    cdef pythread.PyThread_type_lock _busy_lock
+    cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed
+    cdef Semaphore _done_cnt, _failed_cnt
+    cdef bint _shutdown, _shutdown_children
+    cdef object logger
+    cdef object init_callback
+    cdef object _thr_done, _thr_failed
 
-    #c def __cinit__(self, int max_children=-9999, str child_name_prefix="", init_callback=None,
-    #c               done_callback=None, failed_callback=None, int log_level=0, bint result_id=False):
-    def __init__(self, max_children=-9999, child_name_prefix="", init_callback=None,  #p
-                 done_callback=None, failed_callback=None, log_level=None, result_id=False):  #p
+    def __cinit__(self, int max_children=-9999, str child_name_prefix="", init_callback=None,
+                  done_callback=None, failed_callback=None, int log_level=0, bint result_id=False):
+    #p def __init__(self, max_children=-9999, child_name_prefix="", init_callback=None,  
+                 #p done_callback=None, failed_callback=None, log_level=None, result_id=False):  
         self._job_cnt = Semaphore(0)
         self.children = set()
         if max_children <= -9999:
@@ -176,8 +176,8 @@ class Pool(object):  #p
         self.child_name_prefix = child_name_prefix + "-" if child_name_prefix else "ThreadPool%s-" % id(self)
         self.result_id = result_id
         self._child_cnt = 0
-        #c self._busy_lock = pythread.PyThread_allocate_lock()
-        self._busy_lock = Lock()  #p
+        self._busy_lock = pythread.PyThread_allocate_lock()
+        #p self._busy_lock = Lock()  
         self._busy_cnt = 0
         self._delayed = deque()
         self._scheduled = deque()
@@ -219,7 +219,7 @@ class Pool(object):  #p
         _pools.add(self)
 
     def __del__(self):
-        #c pythread.PyThread_free_lock(self._busy_lock)
+        pythread.PyThread_free_lock(self._busy_lock)
         if _pools:
             _pools.remove(self)
 
@@ -229,21 +229,21 @@ class Pool(object):  #p
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.shutdown()
 
-    #c cdef void _busy_lock_inc(self):
-    def _busy_lock_inc(self):  #p
-        #c pythread.PyThread_acquire_lock(self._busy_lock, 1)
-        self._busy_lock.acquire()  #p
+    cdef void _busy_lock_inc(self):
+    #p def _busy_lock_inc(self):  
+        pythread.PyThread_acquire_lock(self._busy_lock, 1)
+        #p self._busy_lock.acquire()  
         self._busy_cnt += 1
-        #c pythread.PyThread_release_lock(self._busy_lock)
-        self._busy_lock.release()  #p
+        pythread.PyThread_release_lock(self._busy_lock)
+        #p self._busy_lock.release()  
 
-    #c cdef void _busy_lock_dec(self):
-    def _busy_lock_dec(self):  #p
-        #c pythread.PyThread_acquire_lock(self._busy_lock, 1)
-        self._busy_lock.acquire()  #p
+    cdef void _busy_lock_dec(self):
+    #p def _busy_lock_dec(self):  
+        pythread.PyThread_acquire_lock(self._busy_lock, 1)
+        #p self._busy_lock.acquire()  
         self._busy_cnt -= 1
-        #c pythread.PyThread_release_lock(self._busy_lock)
-        self._busy_lock.release()  #p
+        pythread.PyThread_release_lock(self._busy_lock)
+        #p self._busy_lock.release()  
 
     def _done_thread(self, done_callback):
         done_popleft = self._done.popleft
@@ -277,7 +277,7 @@ class Pool(object):  #p
                 self._failed_cnt.acquire()
 
     def _child(self, num):
-        #c cdef bint run_child, pop_failed
+        cdef bint run_child, pop_failed
         self._busy_lock_inc()
         child_busy = True
         _done_append = self._done.append
@@ -342,8 +342,8 @@ class Pool(object):  #p
                     self._failed_cnt.release()
         self._busy_lock_dec()
 
-    #c cdef object _submit(self, fn, done_callback, args, kwargs, bint high_priority) except +:
-    def _submit(self, fn, done_callback, args, kwargs, high_priority):  #p
+    cdef object _submit(self, fn, done_callback, args, kwargs, bint high_priority) except +:
+    #p def _submit(self, fn, done_callback, args, kwargs, high_priority):  
         if self._shutdown_children:
             raise PoolStopped("Pool not running")
         if (self._job_cnt._value >= self._child_cnt) and (self._child_cnt < self.max_children):
@@ -382,8 +382,8 @@ class Pool(object):  #p
         self._submit(fn, done_callback, args, kwargs, True)
         self._delayed.remove(timer_obj[0])
 
-    #c cdef object _submit_later(self, delay, fn, done_callback, args, kwargs) except +:
-    def _submit_later(self, delay, fn, done_callback, args, kwargs):  #p
+    cdef object _submit_later(self, delay, fn, done_callback, args, kwargs) except +:
+    #p def _submit_later(self, delay, fn, done_callback, args, kwargs):  
         timer_obj = [None]
         timer = Timer(delay, self._submit_later_do, (timer_obj, fn, done_callback, args, kwargs))
         timer_obj[0] = timer
@@ -397,8 +397,8 @@ class Pool(object):  #p
     def submit_done_later(self, delay, fn, done_callback, *args, **kwargs):
         return self._submit_later(delay, fn, done_callback, args, kwargs)
 
-    #c cdef object _submit_at(self, _runat, interval, fn, done_callback, args, kwargs) except +:
-    def _submit_at(self, _runat, interval, fn, done_callback, args, kwargs):  #p
+    cdef object _submit_at(self, _runat, interval, fn, done_callback, args, kwargs) except +:
+    #p def _submit_at(self, _runat, interval, fn, done_callback, args, kwargs):  
         if isinstance(_runat, struct_time):
             _runat = mktime(_runat)
         now = _time()
@@ -436,8 +436,8 @@ class Pool(object):  #p
         self._scheduled.append(timer)
         timer.start()
 
-    #c cdef object _schedule(self, interval, fn, done_callback, args, kwargs):
-    def _schedule(self, interval, fn, done_callback, args, kwargs):  #p
+    cdef object _schedule(self, interval, fn, done_callback, args, kwargs):
+    #p def _schedule(self, interval, fn, done_callback, args, kwargs):  
         timer_obj = TimerObj()
         timer = Timer(interval, self._schedule_do, (timer_obj, _time(), interval,
                                                     fn, done_callback, args, kwargs))
@@ -457,9 +457,9 @@ class Pool(object):  #p
         return self._scheduled
 
     def as_completed(self, wait=None):
-        #c cdef float to
-        #c cdef object pyto
-        #c cdef bint do_sleep
+        cdef float to
+        cdef object pyto
+        cdef bint do_sleep
         if self._thr_done is not None:
             raise PoolCallback("Using done_callback!")
         if self._thr_failed is not None:
@@ -486,9 +486,9 @@ class Pool(object):  #p
             if do_sleep:
                 sleep(0.01)
 
-    #c def _map_child(self, fn, itr, done_callback):
-    def _map_child(self, fn, itr, done_callback):  #p
-        #c cdef bint append_done
+    def _map_child(self, fn, itr, done_callback):
+    #p def _map_child(self, fn, itr, done_callback):  
+        cdef bint append_done
         self._busy_lock_inc()
         _done_append = self._done.append
         _failed_append = self._failed.append
@@ -522,9 +522,9 @@ class Pool(object):  #p
                     self._failed_cnt.release()
         self._busy_lock_dec()
 
-    #c def _imap_child(self, fn, itr, done_callback):
-    def _imap_child(self, fn, itr, done_callback):  #p
-        #c cdef bint append_done
+    def _imap_child(self, fn, itr, done_callback):
+    #p def _imap_child(self, fn, itr, done_callback):  
+        cdef bint append_done
         self._busy_lock_inc()
         _done_append = self._done.append
         _failed_append = self._failed.append
@@ -562,8 +562,8 @@ class Pool(object):  #p
         self._busy_lock_dec()
 
     def map(self, fn, itr, done_callback=True):
-        #c cdef int itr_cnt, chunksize
-        #c cdef object pychunksize
+        cdef int itr_cnt, chunksize
+        cdef object pychunksize
         if self._shutdown_children:
             raise PoolStopped("Pool not running")
         for child in tuple(self.children):
@@ -628,7 +628,7 @@ class Pool(object):  #p
         return self._failed_cnt
 
     def _join_thread(self, thread, t):
-        #c cdef int cnt
+        cdef int cnt
         while True:
             try:
                 thread.join(1.0)
@@ -674,14 +674,14 @@ class Pool(object):  #p
     def join(self, timeout=None):
         return self.shutdown(timeout, False)
 
-    #c cdef void _delayed_cancel(self):
-    def _delayed_cancel(self):  #p
+    cdef void _delayed_cancel(self):
+    #p def _delayed_cancel(self):  
         for timer in self._delayed:
             timer.cancel()
         self._delayed.clear()
 
-    #c cdef void _scheduled_cancel(self):
-    def _scheduled_cancel(self):  #p
+    cdef void _scheduled_cancel(self):
+    #p def _scheduled_cancel(self):  
         for timer in self._scheduled:
             timer.cancel()
         self._scheduled.clear()

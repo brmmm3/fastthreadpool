@@ -24,7 +24,7 @@ class TestSemaphore(object):
         s.release()
 
     def fastthreadpool_Semaphore(self, values):
-        s = fastthreadpool.Semaphore("bench")
+        s = fastthreadpool.Semaphore()
         for _ in values:
             s.acquire()
             s.release()
@@ -38,7 +38,7 @@ class TestSemaphore(object):
         return getattr(s, "_value", -1)
 
     def fastthreadpool_Semaphore_threads(self, values):
-        s = fastthreadpool.Semaphore("bench_thr", 8)
+        s = fastthreadpool.Semaphore(8)
         pool = fastthreadpool.Pool()
         for value in values:
             if value & 1:

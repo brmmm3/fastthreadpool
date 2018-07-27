@@ -24,21 +24,21 @@ class TestSemaphore(object):
         s.release()
 
     def fastthreadpool_Semaphore(self, values):
-        s = fastthreadpool.Semaphore(0)
+        s = fastthreadpool.Semaphore("bench")
         for _ in values:
-            s.release()
             s.acquire()
+            s.release()
         return s.value
 
     def threading_Semaphore(self, values):
-        s = threading.Semaphore(0)
+        s = threading.Semaphore()
         for _ in values:
-            s.release()
             s.acquire()
-        return s._value
+            s.release()
+        return getattr(s, "_value", -1)
 
     def fastthreadpool_Semaphore_threads(self, values):
-        s = fastthreadpool.Semaphore()
+        s = fastthreadpool.Semaphore("bench_thr", 8)
         pool = fastthreadpool.Pool()
         for value in values:
             if value & 1:
@@ -49,7 +49,7 @@ class TestSemaphore(object):
         return s.value
 
     def threading_Semaphore_threads(self, values):
-        s = threading.Semaphore(0)
+        s = threading.Semaphore(8)
         pool = fastthreadpool.Pool()
         for value in values:
             if value & 1:
@@ -57,7 +57,7 @@ class TestSemaphore(object):
             else:
                 pool.submit(self.acquire_cb, s)
         pool.shutdown()
-        return s._value
+        return getattr(s, "_value", -1)
 
     def test(self, test_cb, data):
         t = time.time()
@@ -266,9 +266,10 @@ class TestValues(object):
         self.test("ThreadPool_map", values)
         self.test("ThreadPool_map_async_done_cb", values)
         self.test("ThreadPool_apply_async_done_cb", values)
-        print("concurrent.futures.ThreadPoolExecutor:")
-        self.test("ThreadPoolExecutor_map", values)
-        self.test("ThreadPoolExecutor_submit_done_cb", values)
+        if sys.version_info[0] > 2:
+            print("concurrent.futures.ThreadPoolExecutor:")
+            self.test("ThreadPoolExecutor_map", values)
+            self.test("ThreadPoolExecutor_submit_done_cb", values)
 
 
 class TestLists(object):
@@ -420,9 +421,10 @@ class TestLists(object):
         self.test("ThreadPool_map", values)
         self.test("ThreadPool_map_async_done_cb", values)
         self.test("ThreadPool_apply_async_done_cb", values)
-        print("concurrent.futures.ThreadPoolExecutor:")
-        self.test("ThreadPoolExecutor_map", values)
-        self.test("ThreadPoolExecutor_submit_done_cb", values)
+        if sys.version_info[0] > 2:
+            print("concurrent.futures.ThreadPoolExecutor:")
+            self.test("ThreadPoolExecutor_map", values)
+            self.test("ThreadPoolExecutor_submit_done_cb", values)
 
 
 class TestCompress(object):
@@ -588,9 +590,10 @@ class TestCompress(object):
         self.test_compress("ThreadPool_map", values)
         self.test_compress("ThreadPool_map_async_done_cb", values)
         self.test_compress("ThreadPool_apply_async_done_cb", values)
-        print("concurrent.futures.ThreadPoolExecutor:")
-        self.test_compress("ThreadPoolExecutor_map", values)
-        self.test_compress("ThreadPoolExecutor_submit_done_cb", values)
+        if sys.version_info[0] > 2:
+            print("concurrent.futures.ThreadPoolExecutor:")
+            self.test_compress("ThreadPoolExecutor_map", values)
+            self.test_compress("ThreadPoolExecutor_submit_done_cb", values)
 
     def run_pack_compress(self, n, cnt):
         print("\nPack and compress %d times %d values:" % (cnt, n))
@@ -614,9 +617,10 @@ class TestCompress(object):
         self.test_pack_compress("ThreadPool_map", values)
         self.test_pack_compress("ThreadPool_map_async_done_cb", values)
         self.test_pack_compress("ThreadPool_apply_async_done_cb", values)
-        print("concurrent.futures.ThreadPoolExecutor:")
-        self.test_pack_compress("ThreadPoolExecutor_map", values)
-        self.test_pack_compress("ThreadPoolExecutor_submit_done_cb", values)
+        if sys.version_info[0] > 2:
+            print("concurrent.futures.ThreadPoolExecutor:")
+            self.test_pack_compress("ThreadPoolExecutor_map", values)
+            self.test_pack_compress("ThreadPoolExecutor_submit_done_cb", values)
 
     def run(self, n, cnt):
         #self.run_compress(10 * n, cnt)
@@ -624,11 +628,11 @@ class TestCompress(object):
 
 
 if __name__ == "__main__":
-    #test = TestSemaphore()
-    #test.run(100000)
-    #test = TestValues()
-    #test.run(1000000)
-    #test = TestLists()
-    #test.run(20000, 10000)
+    test = TestSemaphore()
+    test.run(100000)
+    test = TestValues()
+    test.run(1000000)
+    test = TestLists()
+    test.run(20000, 10000)
     test = TestCompress()
     test.run(1000, 10000)

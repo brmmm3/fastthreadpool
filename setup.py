@@ -9,7 +9,8 @@ import os
 import sys
 # To use a consistent encoding
 from codecs import open
-
+import shutil
+from setuptools import find_packages
 try:
     from setuptools import setup
     from setuptools import Extension
@@ -28,7 +29,7 @@ PKGNAME = 'fastthreadpool'
 PKGDIR = os.path.join(BASEDIR, PKGNAME)
 
 for filename in os.listdir(PKGDIR):
-    if filename.endswith(".cpp") or filename.endswith(".pyx") or filename.endswith(".html"):
+    if filename.endswith(".cpp") or filename.endswith(".c") or filename.endswith(".pyx") or filename.endswith(".html"):
         os.remove(os.path.join(PKGDIR, filename))
 
 extract_cython(os.path.join(PKGDIR, 'fastthreadpool.py'))
@@ -49,6 +50,10 @@ if debug:
 
 
 class build_ext_subclass(build_ext):
+
+    def run(self):
+        build_ext.run(self)
+        shutil.copyfile(PKGNAME + "/__init__.py", self.build_lib + "/" + PKGNAME + "/__init__.py")
 
     def build_extensions(self):
         if self.compiler.compiler_type == "msvc":
@@ -75,10 +80,10 @@ if annotate:
     sys.exit(0)
 
 ext_modules = [
-    Extension(module_name,
-              sources=[os.path.join(PKGDIR, module_name+".pyx")],
+    Extension(PKGNAME + "." + PKGNAME,
+              sources=[os.path.join(PKGDIR, PKGNAME + ".pyx")],
               language="c++")
-    for module_name in MODULES]
+    ]
 
 
 setup(
@@ -115,9 +120,7 @@ setup(
 
     keywords='fast threading thread pool',
     include_package_data=True,
-    #packages=find_packages(where='fastthreadpool', exclude=['examples', 'doc', 'tests']),
-    #exclude_package_data={'fastthreadpool': ['fastthreadpool.pyx']},
-    ext_modules=ext_modules,
-    cmdclass={'build_ext': build_ext_subclass}, install_requires=['Cython']
+    cmdclass={'build_ext': build_ext_subclass}, install_requires=['Cython'],
+    ext_modules=ext_modules
 )
 

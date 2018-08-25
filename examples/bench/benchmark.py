@@ -24,17 +24,17 @@ class TestSemaphore(object):
         s.release()
 
     def fastthreadpool_Semaphore(self, values):
-        s = fastthreadpool.Semaphore()
+        s = fastthreadpool.Semaphore(8)
         for _ in values:
-            s.acquire()
             s.release()
+            s.acquire()
         return s.value
 
     def threading_Semaphore(self, values):
-        s = threading.Semaphore()
+        s = threading.Semaphore(8)
         for _ in values:
-            s.acquire()
             s.release()
+            s.acquire()
         return getattr(s, "_value", -1)
 
     def fastthreadpool_Semaphore_threads(self, values):

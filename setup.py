@@ -27,6 +27,7 @@ from pyorcy import extract_cython
 BASEDIR = os.path.dirname(__file__)
 PKGNAME = 'fastthreadpool'
 PKGDIR = os.path.join(BASEDIR, PKGNAME)
+VERSION = '1.3.1'
 
 for filename in os.listdir(PKGDIR):
     if filename.endswith(".cpp") or filename.endswith(".c") or filename.endswith(".pyx") or filename.endswith(".html"):
@@ -88,13 +89,13 @@ ext_modules = [
 
 setup(
     name='fastthreadpool',
-    version='1.3.0',
+    version=VERSION,
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
     long_description_content_type='text/x-rst',
 
     url='https://github.com/brmmm3/fastthreadpool',
-    download_url='https://github.com/brmmm3/fastthreadpool/releases/download/1.3.0/fastthreadpool-1.3.0.tar.gz',
+    download_url='https://github.com/brmmm3/fastthreadpool/releases/download/%s/fastthreadpool-%s.tar.gz' % (VERSION, VERSION),
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',

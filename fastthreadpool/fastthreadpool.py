@@ -70,7 +70,7 @@ atexit.register(Shutdown)
 class Semaphore(object):  #p
     """Fast semaphore.
     """
-    #c cdef pythread.PyThread_type_lock _lock, _value_lock
+    #c cdef pythread.PyThread_type_lock _lock
     #c cdef int _value
 
     #c def __cinit__(self, int value=1):
@@ -80,20 +80,13 @@ class Semaphore(object):  #p
         #c self._lock = pythread.PyThread_allocate_lock()
         #c if not self._lock:
         #c     raise MemoryError()
-        #c self._value_lock = pythread.PyThread_allocate_lock()
-        #c if not self._value_lock:
-        #c     raise MemoryError()
         self._lock = Lock()  #p
-        self._value_lock = Lock()  #p
         self._value = value
 
     #c def __dealloc__(self):
     #c     if self._lock:
     #c         pythread.PyThread_free_lock(self._lock)
     #c         self._lock = NULL
-    #c     if self._value_lock:
-    #c         pythread.PyThread_free_lock(self._value_lock)
-    #c         self._value_lock = NULL
 
     @property
     def value(self):
@@ -101,14 +94,9 @@ class Semaphore(object):  #p
 
     #c cpdef bint acquire(self, bint blocking=True):
     def acquire(self, blocking=True):  #p
-        #c cdef int value, wait
-        #c pythread.PyThread_acquire_lock(self._value_lock, 1)
-        self._value_lock.acquire()  #p
+        #c cdef int wait
         self._value -= 1
-        value = self._value
-        #c pythread.PyThread_release_lock(self._value_lock)
-        self._value_lock.release()  #p
-        if value >= 0:
+        if self._value >= 0:
             return False
         #c with nogil:
         if True:  #p
@@ -125,14 +113,10 @@ class Semaphore(object):  #p
 
     #c cpdef void release(self):
     def release(self):  #p
-        #c pythread.PyThread_acquire_lock(self._value_lock, 1)
-        self._value_lock.acquire()  #p
         self._value += 1
         if self._value >= 0:
             #c pythread.PyThread_release_lock(self._lock)
             self._lock.release()  #p
-        #c pythread.PyThread_release_lock(self._value_lock)
-        self._value_lock.release()  #p
 
 
 class TimerObj(object):
@@ -333,7 +317,9 @@ class Pool(object):  #p
                 if pop_failed:
                     self._busy_lock_dec()
                     child_busy = False
-                    self._job_cnt.acquire()
+                    if self._job_cnt.acquire(False):
+                        if not self._jobs:
+                            self._job_cnt.acquire()
                 else:
                     if self.result_id:
                         failed_append((id(job), exc))
@@ -360,8 +346,7 @@ class Pool(object):  #p
             self._jobs_appendleft(job)
         else:
             self._jobs_append(job)
-        if  self._job_cnt._value < self._child_cnt:
-            self._job_cnt.release()
+        self._job_cnt.release()
         if self.result_id:
             return id(job)
         return None
@@ -473,7 +458,7 @@ class Pool(object):  #p
         failed = self._failed
         done_popleft = done.popleft
         failed_popleft = failed.popleft
-        while self._busy_cnt or self._jobs:
+        while self._busy_cnt or self._jobs or done or failed:
             do_sleep = True
             while done:
                 yield done_popleft()
@@ -594,6 +579,10 @@ class Pool(object):  #p
         self._done_cnt = Semaphore(0)
         self._failed.clear()
         self._failed_cnt = Semaphore(0)
+
+    @property
+    def child_cnt(self):
+        return self._child_cnt
 
     @property
     def alive(self):

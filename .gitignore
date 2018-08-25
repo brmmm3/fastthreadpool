@@ -1,0 +1,8 @@
+*.pyc
+*.so
+*.o
+*.whl
+fastthreadpool\.egg-info/
+*.cpp
+*.pyx
+build/

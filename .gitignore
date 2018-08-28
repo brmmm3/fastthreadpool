@@ -6,3 +6,9 @@ fastthreadpool\.egg-info/
 *.cpp
 *.pyx
 build/
+
+\.idea/
+
+dist/
+
+upload\.sh

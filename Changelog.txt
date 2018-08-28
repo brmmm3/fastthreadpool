@@ -1,3 +1,15 @@
+1.3.5:
+Fix MANIFEST.in.
+
+1.3.4:
+Another fix in setup.py. pip doesn't like absolute paths.
+
+1.3.3:
+Fix setup.py.
+
+1.3.2:
+Fix broken sdist package.
+
 1.3.1:
 Fix as_completed to return if done and failed queues are really empty.
 Fix an old bug with the jobs semaphore.

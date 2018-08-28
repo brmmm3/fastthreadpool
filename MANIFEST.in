@@ -1,4 +1,6 @@
 include LICENSE.txt
 include README.rst
 include pyorcy.py
+include fastthreadpool/__init__.py
+include fastthreadpool/fastthreadpool.py
 global-exclude *.cpp *.pyx

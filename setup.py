@@ -26,8 +26,8 @@ from pyorcy import extract_cython
 
 BASEDIR = os.path.dirname(__file__)
 PKGNAME = 'fastthreadpool'
-PKGDIR = os.path.join(BASEDIR, PKGNAME)
-VERSION = '1.3.1'
+PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
+VERSION = '1.3.5'
 
 for filename in os.listdir(PKGDIR):
     if filename.endswith(".cpp") or filename.endswith(".c") or filename.endswith(".pyx") or filename.endswith(".html"):

@@ -1,3 +1,11 @@
+1.4.1:
+Make list of child thread objects visible.
+Hopefully finally fix a deadlock issue when job queue is running empty.
+
+1.4.0:
+Add optional init_args parameter for init_callback.
+Set attribute 'tnum' to child number.
+
 1.3.5:
 Fix MANIFEST.in.
 

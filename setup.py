@@ -10,7 +10,6 @@ import sys
 # To use a consistent encoding
 from codecs import open
 import shutil
-from setuptools import find_packages
 try:
     from setuptools import setup
     from setuptools import Extension
@@ -27,7 +26,7 @@ from pyorcy import extract_cython
 BASEDIR = os.path.dirname(__file__)
 PKGNAME = 'fastthreadpool'
 PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
-VERSION = '1.3.5'
+VERSION = '1.4.1'
 
 for filename in os.listdir(PKGDIR):
     if filename.endswith(".cpp") or filename.endswith(".c") or filename.endswith(".pyx") or filename.endswith(".html"):
@@ -50,6 +49,7 @@ if debug:
     del sys.argv[sys.argv.index("debug")]
 
 
+# noinspection PyPep8Naming
 class build_ext_subclass(build_ext):
 
     def run(self):
@@ -124,4 +124,3 @@ setup(
     cmdclass={'build_ext': build_ext_subclass}, install_requires=['Cython'],
     ext_modules=ext_modules
 )
-

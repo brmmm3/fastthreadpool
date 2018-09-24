@@ -49,6 +49,7 @@ LOGGER_NAME = 'fastthreadpool'
 DEFAULT_LOGGING_FORMAT = '[%(levelname)s/%(processName)s] %(message)s'
 
 
+# noinspection PyPep8Naming
 def Shutdown(now=True):
     for pool in _pools:
         if now:
@@ -76,7 +77,7 @@ class Semaphore(object):  #p
     #c def __cinit__(self, int value=1):
     def __init__(self, value=1):  #p
         if value < 0:
-            raise ValueError( "Semaphore: Parameter 'value' must not be less than 0")
+            raise ValueError("Semaphore: Parameter 'value' must not be less than 0")
         #c self._lock = pythread.PyThread_allocate_lock()
         #c if not self._lock:
         #c     raise MemoryError()
@@ -95,7 +96,8 @@ class Semaphore(object):  #p
     #c cpdef bint acquire(self, bint blocking=True):
     def acquire(self, blocking=True):  #p
         #c cdef int wait
-        self._value -= 1
+        if self._value >= 0:
+            self._value -= 1
         if self._value >= 0:
             return False
         #c with nogil:
@@ -130,7 +132,7 @@ class TimerObj(object):
 class Pool(object):  #p
 
     #c cdef Semaphore _job_cnt
-    #c cdef set children
+    #c cdef set _children
     #c cdef int max_children
     #c cdef str child_name_prefix
     #c cdef bint result_id
@@ -140,15 +142,17 @@ class Pool(object):  #p
     #c cdef Semaphore _done_cnt, _failed_cnt
     #c cdef bint _shutdown, _shutdown_children
     #c cdef object logger
-    #c cdef object init_callback
+    #c cdef object init_callback, init_args
     #c cdef object _thr_done, _thr_failed
 
     #c def __cinit__(self, int max_children=-9999, str child_name_prefix="", init_callback=None,
-    #c               done_callback=None, failed_callback=None, int log_level=0, bint result_id=False):
+    #c               init_args=None, done_callback=None, failed_callback=None, int log_level=0,
+    #c               bint result_id=False):
     def __init__(self, max_children=-9999, child_name_prefix="", init_callback=None,  #p
-                 done_callback=None, failed_callback=None, log_level=None, result_id=False):  #p
+                 init_args=None, done_callback=None, failed_callback=None, log_level=None,  #p
+                 result_id=False):  #p
         self._job_cnt = Semaphore(0)
-        self.children = set()
+        self._children = set()
         if max_children <= -9999:
             self.max_children = cpu_count()
         elif max_children > 0:
@@ -176,6 +180,7 @@ class Pool(object):  #p
         self._shutdown = False
         self.logger = None
         self.init_callback = init_callback
+        self.init_args = tuple() if init_args is None else init_args
         if done_callback:
             self._thr_done = Thread(target=self._done_thread, args=(done_callback, ),
                                     name="ThreadPoolDone")
@@ -232,6 +237,7 @@ class Pool(object):  #p
     def _done_thread(self, done_callback):
         done_popleft = self._done.popleft
         while True:
+            # noinspection PyBroadException
             try:
                 while True:
                     done_callback(done_popleft())
@@ -244,6 +250,7 @@ class Pool(object):  #p
         failed_popleft = self._failed.popleft
         logger_exception = None if self.logger is None else self.logger.exception
         while True:
+            # noinspection PyBroadException
             try:
                 if failed_callback is None:
                     if logger_exception is None:
@@ -260,7 +267,7 @@ class Pool(object):  #p
                     break
                 self._failed_cnt.acquire()
 
-    def _child(self, num):
+    def _child(self):
         #c cdef bint run_child, pop_failed
         self._busy_lock_inc()
         child_busy = True
@@ -269,6 +276,7 @@ class Pool(object):  #p
         jobs_popleft = self._jobs.popleft
         run_child = True
         pop_failed = False
+        job = None
         while run_child:
             try:
                 while True:
@@ -317,7 +325,7 @@ class Pool(object):  #p
                 if pop_failed:
                     self._busy_lock_dec()
                     child_busy = False
-                    if self._job_cnt.acquire(False):
+                    if self._job_cnt._value <= 0:
                         if not self._jobs:
                             self._job_cnt.acquire()
                 else:
@@ -334,13 +342,13 @@ class Pool(object):  #p
             raise PoolStopped("Pool not running")
         if (self._job_cnt._value >= self._child_cnt) and (self._child_cnt < self.max_children):
             self._child_cnt += 1
-            thr_child = Thread(target=self._child, args = ( self._child_cnt, ),
-                               name=self.child_name_prefix + str(self._child_cnt))
+            thr_child = Thread(target=self._child, name=self.child_name_prefix + str(self._child_cnt))
             thr_child.daemon = True
+            thr_child.tnum = self._child_cnt
             if self.init_callback is not None:
-                self.init_callback(thr_child)
+                self.init_callback(thr_child, *self.init_args)
             thr_child.start()
-            self.children.add(thr_child)
+            self._children.add(thr_child)
         job = (fn, done_callback, args, kwargs)
         if high_priority:
             self._jobs_appendleft(job)
@@ -370,6 +378,7 @@ class Pool(object):  #p
     #c cdef object _submit_later(self, delay, fn, done_callback, args, kwargs) except +:
     def _submit_later(self, delay, fn, done_callback, args, kwargs):  #p
         timer_obj = [None]
+        # noinspection PyTypeChecker
         timer = Timer(delay, self._submit_later_do, (timer_obj, fn, done_callback, args, kwargs))
         timer_obj[0] = timer
         timer.start()
@@ -390,6 +399,7 @@ class Pool(object):  #p
         if _runat < now:
             raise ValueError("_runat has invalid value!")
         timer_obj = TimerObj()
+        # noinspection PyTypeChecker
         timer = Timer(_runat - now, self._schedule_do, (timer_obj, _runat - interval, interval,
                                                         fn, done_callback, args, kwargs))
         timer_obj.timer_id = timer
@@ -414,6 +424,7 @@ class Pool(object):  #p
             return
         now = _time()
         dt = interval - (now - _runat - interval)
+        # noinspection PyTypeChecker
         timer = Timer(dt, self._schedule_do, (timer_obj, now, interval, fn,
                                               done_callback, args, kwargs))
         timer_obj.old_timer_id = timer_obj.timer_id
@@ -424,6 +435,7 @@ class Pool(object):  #p
     #c cdef object _schedule(self, interval, fn, done_callback, args, kwargs):
     def _schedule(self, interval, fn, done_callback, args, kwargs):  #p
         timer_obj = TimerObj()
+        # noinspection PyTypeChecker
         timer = Timer(interval, self._schedule_do, (timer_obj, _time(), interval,
                                                     fn, done_callback, args, kwargs))
         timer_obj.timer_id = timer
@@ -551,9 +563,9 @@ class Pool(object):  #p
         #c cdef object pychunksize
         if self._shutdown_children:
             raise PoolStopped("Pool not running")
-        for child in tuple(self.children):
+        for child in tuple(self._children):
             if not child.is_alive():
-                self.children.remove(child)
+                self._children.remove(child)
         itr_cnt = len(itr)
         chunksize = itr_cnt // self.max_children
         if itr_cnt % self.max_children:
@@ -567,10 +579,11 @@ class Pool(object):  #p
             thr_child = Thread(target=cb_child, args=(fn, islice(it, pychunksize), done_callback),
                                name=self.child_name_prefix + str(self._child_cnt))
             thr_child.daemon = True
+            thr_child.tnum = self._child_cnt
             if self.init_callback is not None:
-                self.init_callback(thr_child)
+                self.init_callback(thr_child, *self.init_args)
             thr_child.start()
-            self.children.add(thr_child)
+            self._children.add(thr_child)
 
     def clear(self):
         self._shutdown_children = False
@@ -581,12 +594,16 @@ class Pool(object):  #p
         self._failed_cnt = Semaphore(0)
 
     @property
+    def children(self):
+        return self._children
+
+    @property
     def child_cnt(self):
         return self._child_cnt
 
     @property
     def alive(self):
-        return len([1 for child in self.children if child.is_alive()])
+        return len([1 for child in self._children if child.is_alive()])
 
     @property
     def busy(self):
@@ -643,11 +660,11 @@ class Pool(object):  #p
         while self._job_cnt._value <= 0:
             self._job_cnt.release()
         t = None if timeout is None else _time() + timeout
-        for thread in tuple(self.children):
-            self.children.discard(self._join_thread(thread, t))
+        for thread in tuple(self._children):
+            self._children.discard(self._join_thread(thread, t))
         if t is not None and (_time() > t):
             self._delayed_cancel()
-        if self.children:
+        if self._children:
             return False
         self._shutdown = True
         if self._thr_done is not None:

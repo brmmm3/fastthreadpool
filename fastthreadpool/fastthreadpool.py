@@ -325,9 +325,7 @@ class Pool(object):  #p
                 if pop_failed:
                     self._busy_lock_dec()
                     child_busy = False
-                    if self._job_cnt._value <= 0:
-                        if not self._jobs:
-                            self._job_cnt.acquire()
+                    self._job_cnt.acquire()
                 else:
                     if self.result_id:
                         failed_append((id(job), exc))

@@ -15,8 +15,8 @@ all situations.
 **API**
 =======
 
-``Pool(max_children=-9999, child_name_prefix="", init_callback=None, done_callback=None, failed_callback=None, log_level=None, result_id=False)``
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+``Pool(max_children=-9999, child_name_prefix="", init_callback=None, init_args=None, done_callback=None, failed_callback=None, log_level=None, result_id=False)``
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 A thread pool object which controls a pool of worker threads to which jobs can be submitted. It supports asynchronous results with optional callbacks, submitting jobs with delayed execution, scheduling jobs with a repeating interval and has a parallel map implementation.
 
@@ -31,13 +31,18 @@ A thread pool object which controls a pool of worker threads to which jobs can b
 
  **init_callback** if set it is called with the new thread object as parameter before the thread is started.
 
- **done_callback** if defined for every result this callback function is called. It is important to know that the callback function is executed in it's *own single thread context*. If a done_callback is supplied in `submit_done` or `map` then this callback function is called for every result in the *same thread context as the worker thread*.
+ **init_callback** if set it is called with the new thread object as parameter before the thread is started.
+
+ **done_args** if defined the init callback will be called with these arguments in addition to the child thread object.
 
  **failed_callback** if defined for every failed execution of the worker functions the callback function is called. It is important to know that the callback function is executed in it's *own single thread context*.
 
  **log_level** if defined for every failed execution of the worker functions the exception is logged.
 
  **result_id** if *True* every result is a tuple with the result id in the first entry and the result value in the second entry.
+
+**Please note:** Since version 1.4.0 the child thread object has one additional attribute **tnum** which contains the child number as an integer value starting with 0.
+This helps identifying the current child thread for some special cases.
 
 ``submit(fn, *args, **kwargs)``
 *******************************

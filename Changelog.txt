@@ -1,7 +1,15 @@
+1.5.0:
+Add method cleanup_children for removing dead child threads.
+Add parameter 'direct' to map function to be able to either run new threads which
+    directly get a slice of work items or queue slices of work items in the job queue.
+In _submit method ensure to create new child thread if all active child threads are busy.
+
+1.4.2:
+Unpack arguments when calling callback function in map.
+
 1.4.1:
 Make list of child thread objects visible.
 Hopefully finally fix a deadlock issue when job queue is running empty.
-Update README.rst
 
 1.4.0:
 Add optional init_args parameter for init_callback.

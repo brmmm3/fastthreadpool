@@ -26,7 +26,7 @@ from pyorcy import extract_cython
 BASEDIR = os.path.dirname(__file__)
 PKGNAME = 'fastthreadpool'
 PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
-VERSION = '1.4.1'
+PKGVERSION = '1.5.0'
 
 for filename in os.listdir(PKGDIR):
     if filename.endswith(".cpp") or filename.endswith(".c") or filename.endswith(".pyx") or filename.endswith(".html"):
@@ -75,7 +75,7 @@ class build_ext_subclass(build_ext):
 
 
 cythonize("fastthreadpool/*.pyx", language_level=3, annotate=annotate,
-          language="c++", exclude=["setup.py"])
+          exclude=["setup.py"])
 
 if annotate:
     sys.exit(0)
@@ -88,14 +88,14 @@ ext_modules = [
 
 
 setup(
-    name='fastthreadpool',
-    version=VERSION,
+    name=PKGNAME,
+    version=PKGVERSION,
     description='An efficient and leightweight thread pool.',
     long_description=long_description,
     long_description_content_type='text/x-rst',
 
-    url='https://github.com/brmmm3/fastthreadpool',
-    download_url='https://github.com/brmmm3/fastthreadpool/releases/download/%s/fastthreadpool-%s.tar.gz' % (VERSION, VERSION),
+    url='https://github.com/brmmm3/' + PKGNAME,
+    download_url = 'https://github.com/brmmm3/%s/releases/download/%s/%s-%s.tar.gz' % (PKGNAME, PKGVERSION, PKGNAME, PKGVERSION),
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',

@@ -15,8 +15,8 @@ all situations.
 **API**
 =======
 
-``Pool(max_children=-9999, child_name_prefix="", init_callback=None, init_args=None, done_callback=None, failed_callback=None, log_level=None, result_id=False)``
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+``Pool(max_children=-9999, child_name_prefix="", init_callback=None, init_args=None, finish_callback=None, done_callback=None, failed_callback=None, log_level=None, result_id=False, exc_stack=False)``
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 A thread pool object which controls a pool of worker threads to which jobs can be submitted. It supports asynchronous results with optional callbacks, submitting jobs with delayed execution, scheduling jobs with a repeating interval and has a parallel map implementation.
 
@@ -31,9 +31,11 @@ A thread pool object which controls a pool of worker threads to which jobs can b
 
  **init_callback** if set it is called with the new thread object as parameter before the thread is started.
 
- **init_callback** if set it is called with the new thread object as parameter before the thread is started.
+ **init_args** optional arguments for init_callback.
 
- **done_args** if defined the init callback will be called with these arguments in addition to the child thread object.
+ **finish_callback** if set it is called when child thread ends for doing some cleanup actions.
+
+ **done_callback** if defined for every result this callback function is called. It is important to know that the callback function is executed in it's *own single thread context*. If a done_callback is supplied in `submit_done` or `map` then this callback function is called for every result in the *same thread context as the worker thread*.
 
  **failed_callback** if defined for every failed execution of the worker functions the callback function is called. It is important to know that the callback function is executed in it's *own single thread context*.
 
@@ -41,8 +43,7 @@ A thread pool object which controls a pool of worker threads to which jobs can b
 
  **result_id** if *True* every result is a tuple with the result id in the first entry and the result value in the second entry.
 
-**Please note:** Since version 1.4.0 the child thread object has one additional attribute **tnum** which contains the child number as an integer value starting with 0.
-This helps identifying the current child thread for some special cases.
+ **exc_stack** if set to True in case of an exception a full traceback (output of traceback.format_exc) will be pushed to the failed queue instead of a short exception message.
 
 ``submit(fn, *args, **kwargs)``
 *******************************
@@ -127,8 +128,8 @@ Return an iterator, whose values, when waited for, are the worker results or exc
 
  **wait** if None then wait until all jobs are done. If False then return all finished and failed jobs since last call. If the value is an integer or a float and greater than 0 then as_completed will wait for the specified time.
 
-``map(fn, itr, done_callback=True)``
-************************************
+``map(fn, itr, done_callback=True, direct=True)``
+*************************************************
 
 Submit a list of jobs, contained in **itr**, to the pool.
 
@@ -140,6 +141,20 @@ Set **done_callback** to **False** to save memory and processing time if the res
 
 If **done_callback** is a **callable** then for every result done_callback will be called.
 Please note that done_callback needs to be thread safe!
+
+If **direct** is **True** directly call child thread with work items as parameter. After processing work items all child threads will die!
+
+If **direct** is **False** append slices of work items to queue. After processing work items child threads will remain running and can be reused for further processing.
+
+``cleanup_children()``
+**********************
+
+Remove all dead child threads from the list of created child threads.
+
+``shutdown_children()``
+***********************
+
+Set shutdown flag for child threads to initiate a shutdown of all child threads. If you want to reuse the pool you have to call **clear** to clear the shutdown flags.
 
 ``shutdown(timeout=None, soon=False)``
 **************************************
@@ -172,6 +187,16 @@ Clear the queues for the pending, done and failed jobs. Also clear the internal 
 *********
 
 A property which returns the number of alive child threads.
+
+``children``
+************
+
+A property which returns a tuple of all created child threads.
+
+``child_cnt``
+*************
+
+A property which returns the number of created child threads.
 
 ``busy``
 ********

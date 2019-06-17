@@ -143,22 +143,22 @@ class Pool(object):  #p
     #c cdef object _children
     #c cdef int max_children
     #c cdef str child_name_prefix
-    #c cdef bint result_id, exc_stack
+    #c cdef bint result_id, exc_stack, exc_args
     #c cdef int _busy_cnt
     #c cdef pythread.PyThread_type_lock _busy_lock
     #c cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed
     #c cdef Semaphore _done_cnt, _failed_cnt
     #c cdef bint _shutdown, _shutdown_children
     #c cdef object logger
-    #c cdef object init_callback, init_args, finish_callback
+    #c cdef object init_callback, init_args, done_callback, finish_callback
     #c cdef object _thr_done, _thr_failed
 
     #c def __cinit__(self, int max_children=-9999, str child_name_prefix="", init_callback=None,
     #c               init_args=None, finish_callback=None, done_callback=None, failed_callback=None,
-    #c               int log_level=0, bint result_id=False, bint exc_stack=False):
+    #c               int log_level=0, bint result_id=False, bint exc_stack=False, bint exc_args=False):
     def __init__(self, max_children=-9999, child_name_prefix="", init_callback=None,  #p
                  init_args=None, finish_callback=None, done_callback=None, failed_callback=None,  #p
-                 log_level=None, result_id=False, exc_stack=False):  #p
+                 log_level=None, result_id=False, exc_stack=False, exc_args=False):  #p
         self._job_cnt = Semaphore(0)
         self._children = deque()
         if max_children <= -9999:
@@ -172,6 +172,7 @@ class Pool(object):  #p
         self.child_name_prefix = child_name_prefix + "-" if child_name_prefix else "ThreadPool%s-" % id(self)
         self.result_id = result_id  # Add id to each result
         self.exc_stack = exc_stack  # Return frame stack for each error instead of short error message.
+        self.exc_args = exc_args  # In case of an exception in child thread also return work item arguments
         #c self._busy_lock = pythread.PyThread_allocate_lock()
         self._busy_lock = Lock()  #p
         self._busy_cnt = 0
@@ -189,8 +190,9 @@ class Pool(object):  #p
         self.logger = None
         self.init_callback = init_callback
         self.init_args = tuple() if init_args is None else init_args
+        self.done_callback = False if done_callback is False else True
         self.finish_callback = finish_callback
-        if done_callback:
+        if callable(done_callback):
             self._thr_done = Thread(target=self._done_thread, args=(done_callback, ),
                                     name="ThreadPoolDone")
             self._thr_done.daemon = True
@@ -267,10 +269,13 @@ class Pool(object):  #p
                             failed_popleft()
                     else:
                         while True:
-                            logger_exception(failed_popleft()[1])
+                            if self.result_id:
+                                logger_exception(failed_popleft()[1])
+                            else:
+                                logger_exception(failed_popleft()[0])
                 else:
                     while True:
-                        failed_callback(failed_popleft()[1])
+                        failed_callback(*failed_popleft())
             except:
                 if self._shutdown:
                     break
@@ -284,18 +289,36 @@ class Pool(object):  #p
             except:
                 traceback.print_exc()
         self._busy_lock_dec()
-        self._children.remove(current_thread())
+        try:
+            # TODO: try-except should not be necessary here. There seems to be a bug when using map with direct=False
+            self._children.remove(current_thread())
+        except ValueError:
+            pass
+
+    def _append_failed(self, jobid, exc, args, kwargs):
+        if self.result_id:
+            if self.exc_args:
+                self._failed.append(
+                    (jobid, exc if not self.exc_stack else traceback.format_exc(), args, kwargs))
+            else:
+                self._failed.append((jobid, exc if not self.exc_stack else traceback.format_exc()))
+        elif self.exc_args:
+            self._failed.append((exc if not self.exc_stack else traceback.format_exc(), args, kwargs))
+        else:
+            self._failed.append(exc if not self.exc_stack else traceback.format_exc())
+        self._failed_cnt.release()
 
     def _child(self):
         #c cdef bint run_child, pop_failed
         self._busy_lock_inc()
         child_busy = True
         _done_append = self._done.append
-        failed_append = self._failed.append
         jobs_popleft = self._jobs.popleft
         run_child = True
         pop_failed = False
         job = None
+        args = None
+        kwargs = None
         while run_child:
             try:
                 while True:
@@ -346,11 +369,7 @@ class Pool(object):  #p
                     child_busy = False
                     self._job_cnt.acquire()
                 else:
-                    if self.result_id:
-                        failed_append((id(job), exc if not self.exc_stack else traceback.format_exc()))
-                    else:
-                        failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(id(job), exc, args, kwargs)
         self._cleanup_child()
 
     #c cdef object _submit(self, fn, done_callback, args, kwargs, bint high_priority) except +:
@@ -378,7 +397,7 @@ class Pool(object):  #p
         return None
 
     def submit(self, fn, *args, **kwargs):
-        return self._submit(fn, True, args, kwargs, False)
+        return self._submit(fn, self.done_callback, args, kwargs, False)
 
     def submit_done(self, fn, done_callback, *args, **kwargs):
         return self._submit(fn, done_callback, args, kwargs, False)
@@ -501,8 +520,8 @@ class Pool(object):  #p
             if do_sleep:
                 sleep(0.01)
 
-    #c def _map_child(self, fn, itr, done_callback):
-    def _map_child(self, fn, itr, done_callback):  #p
+    #c def _map_child(self, fn, itr, done_callback, bint unpack_args):
+    def _map_child(self, fn, itr, done_callback, unpack_args):  #p
         #c cdef bint append_done
         self._busy_lock_inc()
         _done_append = self._done.append
@@ -512,33 +531,39 @@ class Pool(object):  #p
                 if self._shutdown_children:
                     break
                 try:
-                    fn(*args)
+                    if unpack_args:
+                        fn(*args)
+                    else:
+                        fn(args)
                 except Exception as exc:
-                    _failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(0, exc, args, {})
         elif done_callback is True:
             for args in itr:
                 if self._shutdown_children:
                     break
                 try:
-                    _done_append(fn(*args))
+                    if unpack_args:
+                        _done_append(fn(*args))
+                    else:
+                        _done_append(fn(args))
                     self._done_cnt.release()
                 except Exception as exc:
-                    _failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(0, exc, args, {})
         elif callable(done_callback):
             for args in itr:
                 if self._shutdown_children:
                     break
                 try:
-                    done_callback(fn(*args))
+                    if unpack_args:
+                        done_callback(fn(*args))
+                    else:
+                        done_callback(fn(args))
                 except Exception as exc:
-                    _failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(0, exc, args, {})
         self._cleanup_child()
 
-    #c def _imap_child(self, fn, itr, done_callback):
-    def _imap_child(self, fn, itr, done_callback):  #p
+    #c def _imap_child(self, fn, itr, done_callback, bint unpack_args):
+    def _imap_child(self, fn, itr, done_callback, unpack_args):  #p
         #c cdef bint append_done
         self._busy_lock_inc()
         _done_append = self._done.append
@@ -548,35 +573,45 @@ class Pool(object):  #p
                 if self._shutdown_children:
                     break
                 try:
-                    for _ in fn(*args):
-                        pass
+                    if unpack_args:
+                        for _ in fn(*args):
+                            pass
+                    else:
+                        for _ in fn(args):
+                            pass
                 except Exception as exc:
-                    _failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(0, exc, args, {})
         elif done_callback is True:
             for args in itr:
                 if self._shutdown_children:
                     break
                 try:
-                    for result in fn(*args):
-                        _done_append(result)
-                        self._done_cnt.release()
+                    if unpack_args:
+                        for result in fn(*args):
+                            _done_append(result)
+                            self._done_cnt.release()
+                    else:
+                        for result in fn(args):
+                            _done_append(result)
+                            self._done_cnt.release()
                 except Exception as exc:
-                    _failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(0, exc, args, {})
         elif callable(done_callback):
             for args in itr:
                 if self._shutdown_children:
                     break
                 try:
-                    for result in fn(*args):
-                        done_callback(result)
+                    if unpack_args:
+                        for result in fn(*args):
+                            done_callback(result)
+                    else:
+                        for result in fn(args):
+                            done_callback(result)
                 except Exception as exc:
-                    _failed_append(exc if not self.exc_stack else traceback.format_exc())
-                    self._failed_cnt.release()
+                    self._append_failed(0, exc, args, {})
         self._cleanup_child()
 
-    def map(self, fn, itr, done_callback=True, direct=True):
+    def map(self, fn, itr, done_callback=True, direct=True, unpack_args=True):
         """ Quickly process a bunch of work items.
         Args:
             fn: Function to call in child threads for processing a work item.
@@ -612,7 +647,7 @@ class Pool(object):  #p
             child_cnt = len(self._children)
             for _ in range(max_children):
                 child_cnt += 1
-                thr_child = Thread(target=cb_child, args=(fn, islice(it, pychunksize), done_callback),
+                thr_child = Thread(target=cb_child, args=(fn, islice(it, pychunksize), done_callback, unpack_args),
                                    name=self.child_name_prefix + str(child_cnt))
                 thr_child.daemon = True
                 thr_child.tnum = child_cnt

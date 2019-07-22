@@ -2,7 +2,6 @@
 import os
 import sys
 import time
-import shutil
 
 import fastrmtree
 
@@ -21,32 +20,23 @@ def CreateDirs(baseDirName, dirCnt, fileCnt, level):
 
 def CreateFakeTree(rootDirName):
     print("Create fake file tree...")
-    for bdn in range(8):
-        CreateDirs(os.path.join(rootDirName, "basedir%d" % bdn), 3, 16, 3)
+    for bdn in range(10):
+        CreateDirs(os.path.join(rootDirName, "basedir%d" % bdn), 5, 20, 5)
 
 
 if __name__ == "__main__":
     # First create a file tree for testing fastcopy and fastrmtree
     rootDirName = "TestFileTree"
-    if os.path.exists(rootDirName):
-        shutil.rmtree(rootDirName)
     CreateFakeTree(rootDirName)
-    if os.name != "nt":
-        os.sync()
+    os.sync()
     print("Remove test file tree with fastrmtree...")
     t1 = time.time()
     fastrmtree.main(rootDirName)
     print("Test file tree removed after %.1f seconds" % (time.time() - t1))
-    if os.name != "nt":
-        os.sync()
+    os.sync()
     CreateFakeTree(rootDirName)
-    if os.name != "nt":
-        os.sync()
+    os.sync()
+    print("Remove test file tree with rm -rf...")
     t1 = time.time()
-    if os.name == "nt":
-        print("Remove test file tree with shutil.rmtree...")
-        shutil.rmtree(rootDirName)
-    else:
-        print("Remove test file tree with rm -rf...")
-        os.system("rm -rf %s" % rootDirName)
+    os.system("rm -rf %s" % rootDirName)
     print("Test file tree removed after %.1f seconds" % (time.time() - t1))

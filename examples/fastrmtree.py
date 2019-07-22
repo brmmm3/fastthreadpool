@@ -14,43 +14,40 @@ from collections import deque
 import fastthreadpool
 
 
-def SafeRemove(exc, args, kwargs):
-    try:
-        os.chmod(args[0], stat.S_IWRITE)
-        os.remove(args[0])
-    except Exception as exc:
-        print(exc)
-
-
-def Scanner(rootDirName, pool):
-    dirs2Remove = deque()
-    path_join = os.path.join
+def Scanner(rootDirName):
+    items = deque()
     for srcBaseDirName, dirNames, fileNames in scandir.walk(rootDirName):
         for dirName in dirNames:
-            dirs2Remove.append(path_join(srcBaseDirName, dirName))
+            items.append((0, os.path.join(srcBaseDirName, dirName)))
         for fileName in fileNames:
-            pool.submit(os.remove, path_join(srcBaseDirName, fileName))
-    return dirs2Remove
+            items.append((1, os.path.join(srcBaseDirName, fileName)))
+    return items
+
+
+def Remove(pathName):
+    try:
+        os.remove(pathName)
+    except:
+        os.chmod(pathName, stat.S_IWRITE)
+        os.remove(pathName)
 
 
 def main(rootDirName):
-    with fastthreadpool.Pool(32, done_callback=False, failed_callback=SafeRemove) as pool:
-        dirs2Remove = Scanner(rootDirName, pool)
-        failedDirs = None
-        for _ in range(5):
-            failedDirs = deque()
-            while dirs2Remove:
-                dirName = dirs2Remove.pop()
-                try:
-                    os.rmdir(dirName)
-                except:
-                    failedDirs.append(dirName)
-            if not failedDirs:
-                break
-            dirs2Remove = failedDirs
-        if failedDirs:
-            for dirName in failedDirs:
-                print("ERROR: Failed to remove directory:", dirName)
+    fileTree = Scanner(rootDirName)
+    dirTree = deque()
+    with fastthreadpool.Pool(32) as pool:
+        while fileTree:
+            itemType, pathName = fileTree.pop()
+            if itemType == 0:
+                dirTree.append(pathName)
+            else:
+                pool.submit(Remove, pathName)
+    while dirTree:
+        dirName = dirTree.popleft()
+        try:
+            os.rmdir(dirName)
+        except:
+            dirTree.append(dirName)
     os.rmdir(rootDirName)
 
 

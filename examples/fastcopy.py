@@ -1,41 +1,42 @@
+# Copyright 2019 Martin Bammer. All Rights Reserved.
+# Licensed under MIT license.
+
+# Parallelized version of copytree. Much faster on Windows.
+# Linux is fast by default without multithreading workaround.
 
 import os
 import sys
 import time
-import scandir
 import traceback
+import scandir
 from collections import deque
 from threading import Event
 
 import fastthreadpool
 
 
-def Scanner(rootDirName, dstBaseDirName, items, evt):
+def Scanner(rootDirName, items, evt):
     rootDirNameLen = len(rootDirName) + 1
     path_join = os.path.join
     try:
         for srcBaseDirName, dirNames, fileNames in scandir.walk(rootDirName):
-            relDirName = srcBaseDirName[rootDirNameLen:]
             for dirName in dirNames:
-                pathName = os.path.join(dstBaseDirName, relDirName, dirName)
-                if not os.path.exists(pathName):
-                    os.mkdir(pathName)
+                items.append((0, path_join(srcBaseDirName[rootDirNameLen:], dirName)))
             for fileName in fileNames:
-                items.append(path_join(relDirName, fileName))
+                items.append((1, path_join(srcBaseDirName[rootDirNameLen:], fileName)))
             if items:
                 evt.set()
     except:
-        traceback.print_exc()
-    items.append(None)
+        items.append((-1, traceback.format_exc()))
+    items.append((2, None))
 
 
 def Copy(srcPathName, dstPathName):
+    BS = 65536
+    MINBS = 65536
+    MAXBS = 1024 * 1024
+    time_time = time.time
     try:
-        #print("COPY", srcPathName, dstBaseDirName)
-        BS = 65536
-        MINBS = 65536
-        MAXBS = 1024 * 1024
-        time_time = time.time
         with open(dstPathName, "wb") as O:
             with open(srcPathName, "rb") as I:
                 while True:
@@ -54,28 +55,38 @@ def Copy(srcPathName, dstPathName):
         traceback.print_exc()
 
 
-if __name__ == "__main__":
-    rootDirName = sys.argv[1]
-    dstBaseDirName = sys.argv[2]
+def main(rootDirName, dstBaseDirName):
     if not os.path.exists(dstBaseDirName):
         os.makedirs(dstBaseDirName)
     itemsScanner = deque()
     evtScanner = Event()
     bFinishing = False
-    t1 = time.time()
-    with fastthreadpool.Pool(32, done_callback=False) as pool:
-        pool.submit(Scanner, rootDirName, dstBaseDirName, itemsScanner, evtScanner)
+    path_join = os.path.join
+    with fastthreadpool.Pool(32) as pool:
+        pool.submit(Scanner, rootDirName, itemsScanner, evtScanner)
         while not bFinishing or itemsScanner or (pool.pending > 0):
             try:
-                relPathName = itemsScanner.popleft()
+                itemType, relPathName = itemsScanner.popleft()
             except IndexError:
                 evtScanner.wait(0.1)
                 evtScanner.clear()
                 continue
-            if relPathName is None:
+            if itemType == 0:
+                dirName = path_join(dstBaseDirName, relPathName)
+                if not os.path.exists(dirName):
+                    os.makedirs(dirName)
+            elif itemType == 1:
+                pool.submit(Copy, path_join(rootDirName, relPathName), path_join(dstBaseDirName, relPathName))
+            elif itemType == 2:
                 bFinishing = True
             else:
-                pool.submit(Copy, os.path.join(rootDirName, relPathName), os.path.join(dstBaseDirName, relPathName))
+                print("ERROR:", relPathName)
+                break
             while pool.failed:
                 print(pool.failed.popleft())
+
+
+if __name__ == "__main__":
+    t1 = time.time()
+    main(sys.argv[1], sys.argv[2])
     print("Finished after %.1f seconds." % (time.time() - t1))

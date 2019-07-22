@@ -658,7 +658,7 @@ class Pool(object):  #p
         else:
             empty_dict = {}
             for _ in range(max_children):
-                self._submit(cb_child, False, (fn, islice(it, pychunksize), done_callback), empty_dict, False)
+                self._submit(cb_child, False, (fn, islice(it, pychunksize), done_callback, unpack_args), empty_dict, False)
 
     def clear(self):
         self._shutdown_children = False

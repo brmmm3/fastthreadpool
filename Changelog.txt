@@ -1,3 +1,6 @@
+1.5.2:
+Bugfix: Add missing parameter in map-function when called with direct=False.
+
 1.5.1:
 Add unpack_args argument to map method.
 If unpack_args=True then args will be unpacked when callback function is called (default).

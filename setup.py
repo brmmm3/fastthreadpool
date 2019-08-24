@@ -23,30 +23,10 @@ import Cython.Compiler.Version
 
 from pyorcy import extract_cython
 
-BASEDIR = os.path.dirname(__file__)
 PKGNAME = 'fastthreadpool'
-PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
 PKGVERSION = '1.5.2'
-
-for filename in os.listdir(PKGDIR):
-    if filename.endswith(".cpp") or filename.endswith(".c") or filename.endswith(".pyx") or filename.endswith(".html"):
-        os.remove(os.path.join(PKGDIR, filename))
-
-extract_cython(os.path.join(PKGDIR, 'fastthreadpool.py'))
-
-MODULES = [filename[:-4] for filename in os.listdir(PKGDIR)
-           if filename.endswith('.pyx')]
-
-# Get the long description from the README file
-with open(os.path.join(BASEDIR, 'README.rst'), encoding='utf-8') as F:
-    long_description = F.read()
-
-print("building with Cython " + Cython.Compiler.Version.version)
-
-annotate = "annotate" in sys.argv
-debug = "debug" in sys.argv
-if debug:
-    del sys.argv[sys.argv.index("debug")]
+BASEDIR = os.path.dirname(__file__)
+PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
 
 
 # noinspection PyPep8Naming
@@ -74,10 +54,35 @@ class build_ext_subclass(build_ext):
         build_ext.build_extensions(self)
 
 
-cythonize("fastthreadpool/*.pyx", language_level=3, annotate=annotate,
+
+for filename in os.listdir(PKGDIR):
+    for ext in (".cpp", ".c", ".pyx", ".html"):
+        if filename.endswith(ext):
+            pathname = os.path.join(PKGDIR, filename)
+            if os.path.exists(pathname):
+                os.remove(pathname)
+
+# Get the long description from the README file
+with open(os.path.join(BASEDIR, 'README.rst'), encoding='utf-8') as F:
+    long_description = F.read()
+
+extract_cython(os.path.join(PKGDIR, 'fastthreadpool.py'))
+
+MODULES = [filename[:-4] for filename in os.listdir(PKGDIR)
+           if filename.endswith('.pyx')]
+
+print("Building with Cython " + Cython.Compiler.Version.version)
+
+bAnnotate = "annotate" in sys.argv
+bDebug = "debug" in sys.argv
+if bDebug:
+    sys.argv.remove("debug")
+
+
+cythonize(PKGDIR + "/*.pyx", language_level=3, annotate=bAnnotate,
           exclude=["setup.py"])
 
-if annotate:
+if bAnnotate:
     sys.exit(0)
 
 ext_modules = [
@@ -111,12 +116,11 @@ setup(
 
         'Operating System :: OS Independent',
 
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
 
     keywords='fast threading thread pool',

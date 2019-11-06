@@ -39,14 +39,14 @@ class build_ext_subclass(build_ext):
     def build_extensions(self):
         if self.compiler.compiler_type == "msvc":
             for extension in self.extensions:
-                if debug:
+                if bDebug:
                     extension.extra_compile_args = ["/Od", "/EHsc", "-Zi", "/D__PYX_FORCE_INIT_THREADS=1"]
                     extension.extra_link_args = ["-debug"]
                 else:
                     extension.extra_compile_args = ["/O2", "/EHsc", "/D__PYX_FORCE_INIT_THREADS=1"]
         else:
             for extension in self.extensions:
-                if debug:
+                if bDebug:
                     extension.extra_compile_args = ["-O0", "-g", "-ggdb", "-D__PYX_FORCE_INIT_THREADS=1"]
                     extension.extra_link_args = ["-g"]
                 else:

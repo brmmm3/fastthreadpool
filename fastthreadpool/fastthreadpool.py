@@ -145,20 +145,23 @@ class Pool(object):  #p
     #c cdef str child_name_prefix
     #c cdef bint result_id, exc_stack, exc_args
     #c cdef int _busy_cnt
-    #c cdef pythread.PyThread_type_lock _busy_lock
+    #c cdef pythread.PyThread_type_lock _busy_lock, _done_max_lock
     #c cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed
     #c cdef Semaphore _done_cnt, _failed_cnt
     #c cdef bint _shutdown, _shutdown_children
     #c cdef object logger
     #c cdef object init_callback, init_args, done_callback, finish_callback
     #c cdef object _thr_done, _thr_failed
+    #c cdef int _done_max
 
     #c def __cinit__(self, int max_children=-9999, str child_name_prefix="", init_callback=None,
     #c               init_args=None, finish_callback=None, done_callback=None, failed_callback=None,
-    #c               int log_level=0, bint result_id=False, bint exc_stack=False, bint exc_args=False):
+    #c               int log_level=0, bint result_id=False, bint exc_stack=False, bint exc_args=False,
+    #c               int done_max=0):
     def __init__(self, max_children=-9999, child_name_prefix="", init_callback=None,  #p
                  init_args=None, finish_callback=None, done_callback=None, failed_callback=None,  #p
-                 log_level=None, result_id=False, exc_stack=False, exc_args=False):  #p
+                 log_level=None, result_id=False, exc_stack=False, exc_args=False,  #p
+                 done_max=0):  #p
         self._job_cnt = Semaphore(0)
         self._children = deque()
         if max_children <= -9999:
@@ -192,6 +195,9 @@ class Pool(object):  #p
         self.init_args = tuple() if init_args is None else init_args
         self.done_callback = False if done_callback is False else True
         self.finish_callback = finish_callback
+        self._done_max = done_max  # Maximum number of results in queue (0=no limit).
+        #c self._done_max_lock = pythread.PyThread_allocate_lock()
+        self._done_max_lock = Lock()  #p
         if callable(done_callback):
             self._thr_done = Thread(target=self._done_thread, args=(done_callback, ),
                                     name="ThreadPoolDone")
@@ -256,6 +262,15 @@ class Pool(object):  #p
                 if self._shutdown:
                     break
                 self._done_cnt.acquire()
+
+    #c cdef void _done_cnt_inc(self):
+    def _done_cnt_inc(self):  #p
+        self._done_cnt.release()
+        #c while (self._done_max > 0) and (self._done_cnt._value >= self._done_max):
+        #c     with nogil:
+        #c         pythread.PyThread_acquire_lock(self._done_max_lock, 1)
+        while (self._done_max > 0) and (self._done_cnt.value >= self._done_max):  #p
+            self._done_max_lock.acquire()  #p
 
     def _failed_thread(self, failed_callback):
         failed_popleft = self._failed.popleft
@@ -347,13 +362,13 @@ class Pool(object):  #p
                                     _done_append((jobid, result))
                                 else:
                                     _done_append(result)
-                                self._done_cnt.release()
+                                self._done_cnt_inc()
                         else:
                             if self.result_id:
                                 _done_append((id(job), fn(*args, **kwargs)))
                             else:
                                 _done_append(fn(*args, **kwargs))
-                            self._done_cnt.release()
+                            self._done_cnt_inc()
                     elif callable(done_callback):
                         if isgeneratorfunction(fn):
                             for result in fn(*args, **kwargs):
@@ -490,10 +505,19 @@ class Pool(object):  #p
     def scheduled(self):
         return self._scheduled
 
-    def as_completed(self, wait=None):
+    #c def as_completed(self, wait=None, int cnt_max=0):
+    def as_completed(self, wait=None, cnt_max=0):  #p
+        # wait:
+        #   True=Wait until all jobs are done
+        #   False=Read all results then return immediately
+        #   int or float value=Read all results and wait for further results until timeout
+        #       timeout=current time at function call + value
+        # cnt_max:
+        #   Maximum number of results to read. 0=No limit.
         #c cdef float to
         #c cdef object pyto
         #c cdef bint do_sleep
+        #c cdef int cnt
         if self._thr_done is not None:
             raise PoolCallback("Using done_callback!")
         if self._thr_failed is not None:
@@ -507,13 +531,27 @@ class Pool(object):  #p
         failed = self._failed
         done_popleft = done.popleft
         failed_popleft = failed.popleft
+        cnt = 0
         while self._busy_cnt or self._jobs or done or failed:
             do_sleep = True
             while done:
                 yield done_popleft()
+                if self._done_cnt.value > 0:
+                    self._done_cnt.acquire(False)
+                if self._done_max > 0:
+                    #c pythread.PyThread_release_lock(self._done_max_lock)
+                    self._done_max_lock.release()  #p
+                if cnt_max > 0:
+                    cnt += 1
+                    if cnt >= cnt_max:
+                        return
                 do_sleep = False
             while failed:
                 yield failed_popleft()
+                if cnt_max > 0:
+                    cnt += 1
+                    if cnt >= cnt_max:
+                        return
                 do_sleep = False
             if wait is False or ((to > 0.0) and (_time() > pyto)):
                 return
@@ -546,7 +584,7 @@ class Pool(object):  #p
                         _done_append(fn(*args))
                     else:
                         _done_append(fn(args))
-                    self._done_cnt.release()
+                    self._done_cnt_inc()
                 except Exception as exc:
                     self._append_failed(0, exc, args, {})
         elif callable(done_callback):
@@ -589,11 +627,11 @@ class Pool(object):  #p
                     if unpack_args:
                         for result in fn(*args):
                             _done_append(result)
-                            self._done_cnt.release()
+                            self._done_cnt_inc()
                     else:
                         for result in fn(args):
                             _done_append(result)
-                            self._done_cnt.release()
+                            self._done_cnt_inc()
                 except Exception as exc:
                     self._append_failed(0, exc, args, {})
         elif callable(done_callback):

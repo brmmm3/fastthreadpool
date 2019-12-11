@@ -24,7 +24,7 @@ import Cython.Compiler.Version
 from pyorcy import extract_cython
 
 PKGNAME = 'fastthreadpool'
-PKGVERSION = '1.5.2'
+PKGVERSION = '1.6.0'
 BASEDIR = os.path.dirname(__file__)
 PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
 
@@ -52,7 +52,6 @@ class build_ext_subclass(build_ext):
                 else:
                     extension.extra_compile_args = ["-O2", "-D__PYX_FORCE_INIT_THREADS=1"]
         build_ext.build_extensions(self)
-
 
 
 for filename in os.listdir(PKGDIR):

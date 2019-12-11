@@ -1,3 +1,8 @@
+1.6.0:
+    Add parameter 'done_max' to class Pool to limit number of results in queue.
+    Add parameter 'cnt_max' to function as_completed to limit number of results
+        to read with one function call.
+
 1.5.2:
 Bugfix: Add missing parameter in map-function when called with direct=False.
 

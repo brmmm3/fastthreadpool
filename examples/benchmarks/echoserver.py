@@ -3,10 +3,9 @@ import argparse
 import asyncio
 import gc
 import os
-import socket as socket_module
 import fastthreadpool
 
-from socket import *
+from socket import socket, AF_UNIX, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, IPPROTO_TCP, TCP_NODELAY
 
 
 PRINT = 0
@@ -36,7 +35,7 @@ def pool_echo_client(client, size):
     except (OSError, NameError):
         pass
     b = bytearray(size)
-    bl = [ b ]
+    bl = [b]
     with client:
         try:
             while True:
@@ -102,6 +101,7 @@ async def echo_client_streams(reader, writer):
 
 
 class EchoProtocol(asyncio.Protocol):
+
     def connection_made(self, transport):
         self.transport = transport
 
@@ -121,33 +121,20 @@ async def print_debug(loop):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--uvloop', default=False, action='store_true')
-    parser.add_argument('--streams', default=False, action='store_true')
-    parser.add_argument('--proto', default=False, action='store_true')
+    parser.add_argument('--uvloop', default=False, action='store_true',
+                        help='use uvloop instead of asyncio')
+    parser.add_argument('--streams', default=False, action='store_true',
+                        help='use asyncio/uvloop streams')
+    parser.add_argument('--proto', default=False, action='store_true',
+                        help='use asyncio/uvloop protocol')
+    parser.add_argument('--pool', default=False, action='store_true',
+                        help='use thread pool instead of asyncio/uvloop')
+    parser.add_argument('--threads', default=os.cpu_count(), type=int,
+                        help='number of parallel threads in case of thread pool')
+    parser.add_argument('--bufsize', default=4096, type=int)
     parser.add_argument('--addr', default='127.0.0.1:25000', type=str)
     parser.add_argument('--print', default=False, action='store_true')
-    parser.add_argument('--pool', default=False, action='store_true')
-    parser.add_argument('--threads', default=os.cpu_count(), type=int)
-    parser.add_argument('--buf', default=4096, type=int)
     args = parser.parse_args()
-
-    if args.uvloop:
-        import uvloop
-        loop = uvloop.new_event_loop()
-        print('using UVLoop')
-    else:
-        loop = asyncio.new_event_loop()
-        print('using asyncio loop')
-
-    asyncio.set_event_loop(loop)
-    loop.set_debug(False)
-
-    if args.print:
-        PRINT = 1
-
-    if hasattr(loop, 'print_debug_info'):
-        loop.create_task(print_debug(loop))
-        PRINT = 0
 
     unix = False
     if args.addr.startswith('file:'):
@@ -162,12 +149,37 @@ if __name__ == '__main__':
 
     print('serving on: {}'.format(addr))
 
+    if args.pool:
+        print(f"creating thread pool with {args.threads} threads")
+        print(f"buffer size is {args.bufsize} bytes")
+        pool = fastthreadpool.Pool(args.threads)
+        pool.submit(pool_echo_server, addr, unix, args.threads, args.bufsize)
+        pool.join()
+        sys.exit(0)
+
+    if args.uvloop:
+        import uvloop
+        loop = uvloop.new_event_loop()
+        print('using uvloop')
+    else:
+        loop = asyncio.new_event_loop()
+        print('using asyncio loop')
+
+    asyncio.set_event_loop(loop)
+    loop.set_debug(False)
+
+    if args.print:
+        PRINT = 1
+
+    if hasattr(loop, 'print_debug_info'):
+        loop.create_task(print_debug(loop))
+        PRINT = 0
+
     if args.streams:
         if args.proto:
             print('cannot use --stream and --proto simultaneously')
             exit(1)
-
-        print('using asyncio/streams')
+        print('using streams')
         if unix:
             coro = asyncio.start_unix_server(echo_client_streams,
                                              addr, loop=loop)
@@ -179,20 +191,12 @@ if __name__ == '__main__':
         if args.streams:
             print('cannot use --stream and --proto simultaneously')
             exit(1)
-
         print('using simple protocol')
         if unix:
             coro = loop.create_unix_server(EchoProtocol, addr)
         else:
             coro = loop.create_server(EchoProtocol, *addr)
         srv = loop.run_until_complete(coro)
-    elif args.pool:
-        print("creating pool with %d threads" % args.threads)
-        print("buffer size is %d bytes" % args.buf)
-        pool = fastthreadpool.Pool(args.threads)
-        pool.submit(pool_echo_server, addr, unix, args.threads, args.buf)
-        pool.join()
-        sys.exit(0)
     else:
         print('using sock_recv/sock_sendall')
         loop.create_task(echo_server(loop, addr, unix))

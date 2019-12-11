@@ -5,7 +5,6 @@ import time
 import threading
 import fastthreadpool
 from multiprocessing.pool import ThreadPool
-import lz4.block
 import zstd
 import msgpack
 if sys.version_info[0] > 2:
@@ -17,20 +16,24 @@ class TestSemaphore(object):
     def __init__(self):
         pass
 
-    def acquire_cb(self, s):
+    @staticmethod
+    def acquire_cb(s):
         s.acquire()
 
-    def release_cb(self, s):
+    @staticmethod
+    def release_cb(s):
         s.release()
 
-    def fastthreadpool_Semaphore(self, values):
+    @staticmethod
+    def fastthreadpool_Semaphore(values):
         s = fastthreadpool.Semaphore(8)
         for _ in values:
             s.release()
             s.acquire()
         return s.value
 
-    def threading_Semaphore(self, values):
+    @staticmethod
+    def threading_Semaphore(values):
         s = threading.Semaphore(8)
         for _ in values:
             s.release()
@@ -80,13 +83,16 @@ class TestValues(object):
         self.worker_gen = None
         self.lock = threading.Lock()
 
-    def worker_cb(self, data):
+    @staticmethod
+    def worker_cb(data):
         return data
 
-    def worker_gen_cb(self, data):
+    @staticmethod
+    def worker_gen_cb(data):
         yield data
 
-    def failed_cb(self, exc):
+    @staticmethod
+    def failed_cb(exc):
         print(exc)
 
     def result_cb(self, result):
@@ -115,11 +121,11 @@ class TestValues(object):
         pool.shutdown()
 
     def map_done_cb(self, data):
-        with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
+        with fastthreadpool.Pool(done_callback=self.result_cb) as pool:
             pool.map(self.worker, data)
 
     def map_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         pool.map(self.worker, data)
         pool.shutdown()
         self.result = sum(pool.done)
@@ -131,11 +137,11 @@ class TestValues(object):
         self.result = sum(pool.done)
 
     def map_gen_done_cb(self, data):
-        with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
+        with fastthreadpool.Pool(done_callback=self.result_cb) as pool:
             pool.map(self.worker_gen, data)
 
     def map_gen_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = sum(pool.done)
@@ -148,11 +154,11 @@ class TestValues(object):
         self.result = sum(pool.done)
 
     def submit_result_id(self, data):
-        pool = fastthreadpool.Pool(result_id = True)
+        pool = fastthreadpool.Pool(result_id=True)
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
-        self.result = sum([ result[1] for result in pool.done ])
+        self.result = sum([result[1] for result in pool.done])
 
     def submit_gen(self, data):
         pool = fastthreadpool.Pool()
@@ -162,24 +168,24 @@ class TestValues(object):
         self.result = sum(pool.done)
 
     def submit_gen_result_id(self, data):
-        pool = fastthreadpool.Pool(result_id = True)
+        pool = fastthreadpool.Pool(result_id=True)
         for value in data:
             pool.submit(self.worker_gen, value)
         pool.shutdown()
-        self.result = sum([ result[1] for result in pool.done ])
+        self.result = sum([result[1] for result in pool.done])
 
     def submit_pool_done_cb(self, data):
-        with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
+        with fastthreadpool.Pool(done_callback=self.result_cb) as pool:
             for value in data:
                 pool.submit(self.worker, value)
 
     def submit_gen_pool_done_cb(self, data):
-        with fastthreadpool.Pool(done_callback = self.result_cb) as pool:
+        with fastthreadpool.Pool(done_callback=self.result_cb) as pool:
             for value in data:
                 pool.submit(self.worker_gen, value)
 
     def submit_pool_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
@@ -201,19 +207,19 @@ class TestValues(object):
 
     def ThreadPool_map_async_done_cb(self, data):
         pool = ThreadPool()
-        pool.map_async(self.worker, data, callback = self.results_cb)
+        pool.map_async(self.worker, data, callback=self.results_cb)
         pool.close()
         pool.join()
 
     def ThreadPool_apply_async_done_cb(self, data):
         pool = ThreadPool()
         for value in data:
-            pool.apply_async(self.worker, ( value, ), callback = self.result_cb)
+            pool.apply_async(self.worker, (value, ), callback=self.result_cb)
         pool.close()
         pool.join()
 
     def ThreadPoolExecutor_map(self, data):
-        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
+        pool = ThreadPoolExecutor(max_workers=os.cpu_count())
         results = pool.map(self.worker, data)
         pool.shutdown()
         self.result = sum(results)
@@ -221,7 +227,7 @@ class TestValues(object):
     def ThreadPoolExecutor_submit_done_cb(self, data):
         # Important: The result function is executed in the worker thread. So we need a
         #   lock in the result function!
-        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
+        pool = ThreadPoolExecutor(max_workers=os.cpu_count())
         for value in data:
             future = pool.submit(self.worker, value)
             future.add_done_callback(self.locked_result_future_cb)
@@ -244,7 +250,7 @@ class TestValues(object):
             self.result_cb(self.worker_cb(value))
         print("%7.3f %12d single threaded" % (time.time() - t, self.result))
         t = time.time()
-        self.result = sum([ self.worker_cb(value) for value in values ])
+        self.result = sum([self.worker_cb(value) for value in values])
         print("%7.3f %12d sum list" % (time.time() - t, self.result))
         print("fastthreadpool:")
         self.test("map", values)
@@ -280,13 +286,16 @@ class TestLists(object):
         self.worker_gen = None
         self.lock = threading.Lock()
 
-    def worker_cb(self, data):
+    @staticmethod
+    def worker_cb(data):
         return sum(data)
 
-    def worker_gen_cb(self, data):
+    @staticmethod
+    def worker_gen_cb(data):
         yield sum(data)
 
-    def failed_cb(self, exc):
+    @staticmethod
+    def failed_cb(exc):
         print(exc)
 
     def result_cb(self, result):
@@ -310,12 +319,12 @@ class TestLists(object):
         self.result = sum(pool.done)
 
     def map_done_cb(self, data):
-        pool = fastthreadpool.Pool(done_callback = self.result_cb)
+        pool = fastthreadpool.Pool(done_callback=self.result_cb)
         pool.map(self.worker, data)
         pool.shutdown()
 
     def map_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         pool.map(self.worker, data)
         pool.shutdown()
         self.result = sum(pool.done)
@@ -327,12 +336,12 @@ class TestLists(object):
         self.result = sum(pool.done)
 
     def map_gen_done_cb(self, data):
-        pool = fastthreadpool.Pool(done_callback = self.result_cb)
+        pool = fastthreadpool.Pool(done_callback=self.result_cb)
         pool.map(self.worker_gen, data)
         pool.shutdown()
 
     def map_gen_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = sum(pool.done)
@@ -345,13 +354,13 @@ class TestLists(object):
         self.result = sum(pool.done)
 
     def submit_done_cb(self, data):
-        pool = fastthreadpool.Pool(done_callback = self.result_cb)
+        pool = fastthreadpool.Pool(done_callback=self.result_cb)
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
 
     def submit_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
@@ -366,25 +375,25 @@ class TestLists(object):
 
     def ThreadPool_map_async_done_cb(self, data):
         pool = ThreadPool()
-        pool.map_async(self.worker, data, callback = self.results_cb)
+        pool.map_async(self.worker, data, callback=self.results_cb)
         pool.close()
         pool.join()
 
     def ThreadPool_apply_async_done_cb(self, data):
         pool = ThreadPool()
         for value in data:
-            pool.apply_async(self.worker, ( value, ), callback = self.result_cb)
+            pool.apply_async(self.worker, (value, ), callback=self.result_cb)
         pool.close()
         pool.join()
 
     def ThreadPoolExecutor_map(self, data):
-        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
+        pool = ThreadPoolExecutor(max_workers=os.cpu_count())
         results = pool.map(self.worker, data)
         pool.shutdown()
         self.result = sum(results)
 
     def ThreadPoolExecutor_submit_done_cb(self, data):
-        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
+        pool = ThreadPoolExecutor(max_workers=os.cpu_count())
         for value in data:
             future = pool.submit(self.worker, value)
             future.add_done_callback(self.locked_result_future_cb)
@@ -401,7 +410,7 @@ class TestLists(object):
     def run(self, n, cnt):
         print("\n%d lists with %d values:" % (n, cnt))
         v = list(range(cnt))
-        values = [ v for _ in range(n) ]
+        values = [v for _ in range(n)]
         self.result = 0
         t = time.time()
         for value in values:
@@ -435,23 +444,32 @@ class TestCompress(object):
         self.worker_gen = None
         self.lock = threading.Lock()
 
-    def compress_cb(self, data):
-        return zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(data)
+    @staticmethod
+    def compress_cb(data):
+        # noinspection PyArgumentList
+        return zstd.ZstdCompressor(write_content_size=True, write_checksum=True, level=14).compress(data)
         #return lz4.block.compress(data)
 
-    def compress_gen_cb(self, data):
-        yield zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(data)
+    @staticmethod
+    def compress_gen_cb(data):
+        # noinspection PyArgumentList
+        yield zstd.ZstdCompressor(write_content_size=True, write_checksum=True, level=14).compress(data)
         #yield lz4.block.compress(data)
 
-    def pack_compress_cb(self, data):
-        return zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(msgpack.packb(data, use_bin_type = True))
+    @staticmethod
+    def pack_compress_cb(data):
+        # noinspection PyArgumentList
+        return zstd.ZstdCompressor(write_content_size=True, write_checksum=True, level=14).compress(msgpack.packb(data, use_bin_type=True))
         #return lz4.block.compress(msgpack.packb(data, use_bin_type = True))
 
-    def pack_compress_gen_cb(self, data):
-        yield zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(msgpack.packb(data, use_bin_type = True))
+    @staticmethod
+    def pack_compress_gen_cb(data):
+        # noinspection PyArgumentList
+        yield zstd.ZstdCompressor(write_content_size=True, write_checksum=True, level=14).compress(msgpack.packb(data, use_bin_type=True))
         #yield lz4.block.compress(msgpack.packb(data, use_bin_type = True))
 
-    def failed_cb(self, exc):
+    @staticmethod
+    def failed_cb(exc):
         print(exc)
 
     def result_cb(self, result):
@@ -471,12 +489,12 @@ class TestCompress(object):
         self.result = list(pool.done)
 
     def map_done_cb(self, data):
-        pool = fastthreadpool.Pool(done_callback = self.result_cb)
+        pool = fastthreadpool.Pool(done_callback=self.result_cb)
         pool.map(self.worker, data)
         pool.shutdown()
 
     def map_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         pool.map(self.worker, data)
         pool.shutdown()
         self.result = list(pool.done)
@@ -488,12 +506,12 @@ class TestCompress(object):
         self.result = list(pool.done)
 
     def map_gen_done_cb(self, data):
-        pool = fastthreadpool.Pool(done_callback = self.result_cb)
+        pool = fastthreadpool.Pool(done_callback=self.result_cb)
         pool.map(self.worker_gen, data)
         pool.shutdown()
 
     def map_gen_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         pool.map(self.worker_gen, data)
         pool.shutdown()
         self.result = list(pool.done)
@@ -506,13 +524,13 @@ class TestCompress(object):
         self.result = list(pool.done)
 
     def submit_done_cb(self, data):
-        pool = fastthreadpool.Pool(done_callback = self.result_cb)
+        pool = fastthreadpool.Pool(done_callback=self.result_cb)
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
 
     def submit_failed_cb(self, data):
-        pool = fastthreadpool.Pool(failed_callback = self.failed_cb)
+        pool = fastthreadpool.Pool(failed_callback=self.failed_cb)
         for value in data:
             pool.submit(self.worker, value)
         pool.shutdown()
@@ -527,25 +545,25 @@ class TestCompress(object):
 
     def ThreadPool_map_async_done_cb(self, data):
         pool = ThreadPool()
-        pool.map_async(self.worker, data, callback = self.results_cb)
+        pool.map_async(self.worker, data, callback=self.results_cb)
         pool.close()
         pool.join()
 
     def ThreadPool_apply_async_done_cb(self, data):
         pool = ThreadPool()
         for value in data:
-            pool.apply_async(self.worker, ( value, ), callback = self.result_cb)
+            pool.apply_async(self.worker, (value,), callback=self.result_cb)
         pool.close()
         pool.join()
 
     def ThreadPoolExecutor_map(self, data):
-        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
+        pool = ThreadPoolExecutor(max_workers=os.cpu_count())
         results = pool.map(self.worker, data)
         pool.shutdown()
         self.result = list(results)
 
     def ThreadPoolExecutor_submit_done_cb(self, data):
-        pool = ThreadPoolExecutor(max_workers = os.cpu_count())
+        pool = ThreadPoolExecutor(max_workers=os.cpu_count())
         for value in data:
             future = pool.submit(self.worker, value)
             future.add_done_callback(self.locked_result_future_cb)
@@ -570,7 +588,7 @@ class TestCompress(object):
     def run_compress(self, n, cnt):
         packed_values = msgpack.packb(list(range(n)))
         print("\nCompress %d times %d values:" % (cnt, n))
-        values = [ packed_values for _ in range(cnt) ]
+        values = [packed_values for _ in range(cnt)]
         self.result = []
         t = time.time()
         for value in values:
@@ -597,7 +615,7 @@ class TestCompress(object):
 
     def run_pack_compress(self, n, cnt):
         print("\nPack and compress %d times %d values:" % (cnt, n))
-        values = [ { "TEST" : [ list(range(n)), list(range(n)) ] } for _ in range(cnt) ]
+        values = [{"TEST": [list(range(n)), list(range(n))]} for _ in range(cnt)]
         self.result = []
         t = time.time()
         for value in values:

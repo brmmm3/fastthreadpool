@@ -662,6 +662,7 @@ class Pool(object):  #p
                     If False append slices of work items to queue.
                         After processing work items child threads will remain running
                         and can be reused for further processing.
+            unpack_args: Unpack arguments in child thread.
         """
         #c cdef int itr_cnt, chunksize
         #c cdef object pychunksize
@@ -746,6 +747,10 @@ class Pool(object):  #p
     def failed_cnt(self):
         return self._failed_cnt
 
+    @property
+    def is_shutdown(self):
+        return self._shutdown
+
     def _join_thread(self, thread, t):
         #c cdef int cnt
         while True:
@@ -778,6 +783,7 @@ class Pool(object):  #p
                 self._jobs_append(None)
         while self._job_cnt._value <= 0:
             self._job_cnt.release()
+        self._shutdown = True
         t = None if timeout is None else _time() + timeout
         for thread in tuple(self._children):
             self._join_thread(thread, t)
@@ -785,7 +791,6 @@ class Pool(object):  #p
             self._delayed_cancel()
         if self._children:
             return False
-        self._shutdown = True
         if self._thr_done is not None:
             while self._done_cnt._value <= 0:
                 self._done_cnt.release()

@@ -40,8 +40,8 @@ Release a semaphore, incrementing the internal counter by one. When it was zero 
 become larger than zero again, wake up that thread.
 
 
-Pool(max_children=-9999, child_name_prefix="", init_callback=None, init_args=None, finish_callback=None, done_callback=None, failed_callback=None, log_level=None, result_id=False, exc_stack=False)
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Pool(max_children=-9999, child_name_prefix="", init_callback=None, init_args=None, finish_callback=None, done_callback=None, failed_callback=None, log_level=None, result_id=False, exc_stack=False, exc_args=False, done_max=0)
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 A thread pool object which controls a pool of worker threads to which jobs can be submitted. It supports asynchronous results with
 optional callbacks, submitting jobs with delayed execution, scheduling jobs with a repeating interval and has a parallel map
@@ -78,8 +78,16 @@ implementation.
 
  **result_id** if ``True`` every result is a tuple with the result id in the first entry and the result value in the second entry.
 
- **exc_stack** if set to True in case of an exception a full traceback
-  (output of ``traceback.format_exc``) will be pushed to the failed queue instead of a short exception message.
+ **exc_stack** if ``True`` in case of an exception a full traceback (output of ``traceback.format_exc``)
+     are pushed to the failed queue instead of a short exception message.
+
+ **exc_args** if ``True`` in case of an exception the job arguments are pushed to the failed queue.
+     An entry in the failed queue will be a tuple with (exception, args, kwargs).
+
+ **done_max** if >0 the number of results in the done queue will be limited to this value. This can be useful
+     to not fill up the RAM. If the limit is reached all children will go into idle mode until results are
+     fetched from the done queue via `as_completed`.
+     **Note:** when this limit is used it is important to use `as_completed`!
 
 ``submit(fn, *args, **kwargs)``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -281,3 +289,13 @@ A property which returns the queue for exceptions of failed jobs. The queue is a
 ^^^^^^^^^^^^^^
 
 A property which returns a semaphore for the failed queue. It can be used to waiting for results without the need for polling.
+
+``is_shutdown``
+^^^^^^^^^^^^^^
+
+A property which returns `True` if the pool is shutting down.
+
+``wait_idle(timeout=None)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Wait until all jobs are done or a timeout occurred.

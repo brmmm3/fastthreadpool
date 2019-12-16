@@ -1,3 +1,6 @@
+1.7.0:
+    Add wait_idle method to wait for thread pool getting idle.
+
 1.6.0:
     Add parameter 'done_max' to class Pool to limit number of results in queue.
     Add parameter 'cnt_max' to function as_completed to limit number of results

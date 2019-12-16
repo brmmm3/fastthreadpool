@@ -24,7 +24,7 @@ import Cython.Compiler.Version
 from pyorcy import extract_cython
 
 PKGNAME = 'fastthreadpool'
-PKGVERSION = '1.6.0'
+PKGVERSION = '1.7.0'
 BASEDIR = os.path.dirname(__file__)
 PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
 

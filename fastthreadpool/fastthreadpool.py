@@ -13,12 +13,12 @@
 
 __author__ = 'Martin Bammer (mrbm74@gmail.com)'
 
-#c cdef sys, isgeneratorfunction, Lock, Thread, Timer, current_thread, islice, deque, _time, sleep, cpu_count
+#c cdef sys, isgeneratorfunction, Event, Lock, Thread, Timer, current_thread, islice, deque, _time, sleep, cpu_count
 import sys
 import atexit
 import traceback
 from inspect import isgeneratorfunction
-from threading import Lock, Thread, Timer, current_thread
+from threading import Event, Lock, Thread, Timer, current_thread
 from itertools import islice
 from time import sleep, mktime, struct_time
 try:
@@ -146,7 +146,7 @@ class Pool(object):  #p
     #c cdef bint result_id, exc_stack, exc_args
     #c cdef int _busy_cnt
     #c cdef pythread.PyThread_type_lock _busy_lock, _done_max_lock
-    #c cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed
+    #c cdef object _delayed, _scheduled, _jobs, _jobs_append, _jobs_appendleft, _done, _failed, _idle_event
     #c cdef Semaphore _done_cnt, _failed_cnt
     #c cdef bint _shutdown, _shutdown_children
     #c cdef object logger
@@ -178,7 +178,8 @@ class Pool(object):  #p
         self.exc_args = exc_args  # In case of an exception in child thread also return work item arguments
         #c self._busy_lock = pythread.PyThread_allocate_lock()
         self._busy_lock = Lock()  #p
-        self._busy_cnt = 0
+        self._busy_cnt = 0  # Number of busy child threads
+        self._idle_event = Event()
         self._delayed = deque()
         self._scheduled = deque()
         self._jobs = deque()
@@ -195,7 +196,7 @@ class Pool(object):  #p
         self.init_args = tuple() if init_args is None else init_args
         self.done_callback = False if done_callback is False else True
         self.finish_callback = finish_callback
-        self._done_max = done_max  # Maximum number of results in queue (0=no limit).
+        self._done_max = done_max  # Maximum number of results in done queue (0=no limit).
         #c self._done_max_lock = pythread.PyThread_allocate_lock()
         self._done_max_lock = Lock()  #p
         if callable(done_callback):
@@ -226,6 +227,7 @@ class Pool(object):  #p
 
     def __del__(self):
         #c pythread.PyThread_free_lock(self._busy_lock)
+        self._idle_event.set()
         if _pools:
             _pools.remove(self)
 
@@ -237,6 +239,8 @@ class Pool(object):  #p
 
     #c cdef void _busy_lock_inc(self):
     def _busy_lock_inc(self):  #p
+        if self._busy_cnt == 0:
+            self._idle_event.clear()
         #c pythread.PyThread_acquire_lock(self._busy_lock, 1)
         self._busy_lock.acquire()  #p
         self._busy_cnt += 1
@@ -245,6 +249,8 @@ class Pool(object):  #p
 
     #c cdef void _busy_lock_dec(self):
     def _busy_lock_dec(self):  #p
+        if self._busy_cnt == 1:
+            self._idle_event.set()
         #c pythread.PyThread_acquire_lock(self._busy_lock, 1)
         self._busy_lock.acquire()  #p
         self._busy_cnt -= 1
@@ -709,10 +715,12 @@ class Pool(object):  #p
 
     @property
     def children(self):
+        """ Return all child thread instances as a tuple """
         return tuple(self._children)
 
     @property
     def child_cnt(self):
+        """ Return number of child threads """
         return len(self._children)
 
     @property
@@ -721,10 +729,12 @@ class Pool(object):  #p
 
     @property
     def busy(self):
+        """ Return number of busy child threads """
         return self._busy_cnt
 
     @property
     def pending(self):
+        """ Return number of jobs which are not done """
         return self._busy_cnt + len(self._jobs)
 
     @property
@@ -750,6 +760,10 @@ class Pool(object):  #p
     @property
     def is_shutdown(self):
         return self._shutdown
+
+    def wait_idle(self, timeout=None):
+        """ Wait until thread pool is idle or timeout occurs """
+        return self._idle_event.wait(timeout)
 
     def _join_thread(self, thread, t):
         #c cdef int cnt
@@ -799,6 +813,7 @@ class Pool(object):  #p
             while self._failed_cnt._value <= 0:
                 self._failed_cnt.release()
             self._join_thread(self._thr_failed, t)
+        self._idle_event.set()
         return True
 
     def join(self, timeout=None):

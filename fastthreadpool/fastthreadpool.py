@@ -215,8 +215,7 @@ class Pool(object):  #p
                 handler = logging.StreamHandler()
                 handler.setFormatter(formatter)
                 self.logger.addHandler(handler)
-                if log_level:
-                    self.logger.setLevel(log_level)
+                self.logger.setLevel(log_level)
             self._thr_failed = Thread(target=self._failed_thread, args=(failed_callback, ),
                                       name="ThreadPoolFailed")
             self._thr_failed.daemon = True

@@ -3,17 +3,22 @@ import time
 from multiprocessing.pool import ThreadPool
 import fastthreadpool
 
+
 def worker(value):
     return value
+
 
 class Result:
     result = 0
 
+
 def result_cb(value):
     Result.result += value
 
+
 def map_result_cb(values):
     Result.result += sum(values)
+
 
 data = list(range(50000))
 
@@ -46,7 +51,7 @@ print("%.3f" % (time.time() - t), result)
 
 t = time.time()
 pool = ThreadPool()
-pool.map_async(worker, data, callback = map_result_cb)
+pool.map_async(worker, data, callback=map_result_cb)
 pool.close()
 pool.join()
 print("%.3f" % (time.time() - t), Result.result)
@@ -54,8 +59,7 @@ print("%.3f" % (time.time() - t), Result.result)
 t = time.time()
 pool = ThreadPool()
 for value in data:
-    pool.apply_async(worker, ( value, ), callback = result_cb)
+    pool.apply_async(worker, (value, ), callback=result_cb)
 pool.close()
 pool.join()
 print("%.3f" % (time.time() - t), Result.result)
-

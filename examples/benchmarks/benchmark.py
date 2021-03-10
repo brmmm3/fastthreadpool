@@ -5,7 +5,7 @@ import time
 import threading
 import fastthreadpool
 from multiprocessing.pool import ThreadPool
-import zstd
+import zstandard as zstd
 import msgpack
 if sys.version_info[0] > 2:
     from concurrent.futures import ThreadPoolExecutor

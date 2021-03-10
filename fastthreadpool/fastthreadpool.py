@@ -51,6 +51,8 @@ _pools = set()
 LOGGER_NAME = 'fastthreadpool'
 DEFAULT_LOGGING_FORMAT = '[%(levelname)s/%(processName)s] %(message)s'
 
+DBG = deque()
+
 
 # noinspection PyPep8Naming
 def Shutdown(now=True):
@@ -105,6 +107,7 @@ class Semaphore(object):  #p
             self._value -= 1
         if self._value >= 0:
             return False
+        DBG.append(f"L {self} {self._value}")
         #c with nogil:
         if True:  #p
             #c wait = pythread.WAIT_LOCK if blocking else pythread.NOWAIT_LOCK
@@ -122,6 +125,7 @@ class Semaphore(object):  #p
     def release(self):  #p
         self._value += 1
         if self._value >= 0:
+            DBG.append(f"U {self} {self._value}")
             #c pythread.PyThread_release_lock(self._lock)
             try:  #p
                 self._lock.release()  #p
@@ -263,9 +267,11 @@ class Pool(object):  #p
             try:
                 while True:
                     done_callback(done_popleft())
-            except:
+            except Exception as exc:
                 if self._shutdown:
                     break
+                if exc.__class__.__name__ != "IndexError":
+                    self._append_failed(0, exc, (), {})
                 self._done_cnt.acquire()
 
     #c cdef void _done_cnt_inc(self):
@@ -295,7 +301,11 @@ class Pool(object):  #p
                                 logger_exception(failed_popleft()[0])
                 else:
                     while True:
-                        failed_callback(*failed_popleft())
+                        failed = failed_popleft()
+                        try:
+                            failed_callback(*failed)
+                        except:
+                            failed_callback(failed)
             except:
                 if self._shutdown:
                     break
@@ -339,6 +349,7 @@ class Pool(object):  #p
         job = None
         args = None
         kwargs = None
+        DBG.append(f"child.started")
         while run_child:
             try:
                 while True:
@@ -347,6 +358,7 @@ class Pool(object):  #p
                         child_busy = True
                     pop_failed = True
                     job = jobs_popleft()
+                    DBG.append(f"child.job {job}")
                     pop_failed = False
                     if job is None or self._shutdown_children:
                         self._job_cnt.release()
@@ -373,6 +385,7 @@ class Pool(object):  #p
                                 _done_append((id(job), fn(*args, **kwargs)))
                             else:
                                 _done_append(fn(*args, **kwargs))
+                            DBG.append(f"child._done {self._done}")
                             self._done_cnt_inc()
                     elif callable(done_callback):
                         if isgeneratorfunction(fn):
@@ -381,15 +394,19 @@ class Pool(object):  #p
                         else:
                             done_callback(fn(*args, **kwargs))
             except Exception as exc:
+                DBG.append(f"child.exc {self._shutdown_children} {pop_failed} {self._job_cnt.value} {exc}")
                 if self._shutdown_children:
                     self._job_cnt.release()
                     break
                 if pop_failed:
                     self._busy_lock_dec()
                     child_busy = False
+                    DBG.append("child.wait")
                     self._job_cnt.acquire()
+                    DBG.append("child.continue")
                 else:
                     self._append_failed(id(job), exc, args, kwargs)
+        DBG.append("child.exit")
         self._cleanup_child()
 
     #c cdef object _submit(self, fn, done_callback, args, kwargs, bint high_priority) except +:
@@ -403,8 +420,11 @@ class Pool(object):  #p
         else:
             self._jobs_append(job)
         self._job_cnt.release()
+        DBG.append(f"self._job_cnt._lock {self._job_cnt}")
         child_cnt = len(self._children)
+        DBG.append(f"_submit {self._busy_cnt} {child_cnt} {len(self._children)} {self._job_cnt.value} {args}")
         if (self._busy_cnt >= child_cnt) and (child_cnt < self.max_children):
+            DBG.append("_submit start child")
             thr_child = Thread(target=self._child, name=self.child_name_prefix + str(child_cnt))
             thr_child.daemon = True
             thr_child.tnum = child_cnt
@@ -654,7 +674,7 @@ class Pool(object):  #p
                     self._append_failed(0, exc, args, {})
         self._cleanup_child()
 
-    def map(self, fn, itr, done_callback=True, direct=True, unpack_args=True):
+    def map(self, fn, itr, done_callback=True, direct=True, unpack_args=None):
         """ Quickly process a bunch of work items.
         Args:
             fn: Function to call in child threads for processing a work item.
@@ -685,6 +705,13 @@ class Pool(object):  #p
             pychunksize = chunksize + 1
         else:
             pychunksize = chunksize
+        if unpack_args is None:
+            try:
+                iter(iter(itr).__next__())
+            except:
+                unpack_args = False
+            else:
+                unpack_args = True
         it = iter(itr)
         cb_child = self._imap_child if isgeneratorfunction(fn) else self._map_child
         if direct is True:

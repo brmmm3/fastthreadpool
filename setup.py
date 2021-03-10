@@ -24,7 +24,7 @@ import Cython.Compiler.Version
 from pyorcy import extract_cython
 
 PKGNAME = 'fastthreadpool'
-PKGVERSION = '1.7.0'
+PKGVERSION = '1.8.1'
 BASEDIR = os.path.dirname(__file__)
 PKGDIR = PKGNAME if not BASEDIR else os.path.join(BASEDIR, PKGNAME)
 
@@ -99,7 +99,7 @@ setup(
     long_description_content_type='text/x-rst',
 
     url='https://github.com/brmmm3/' + PKGNAME,
-    download_url = 'https://github.com/brmmm3/%s/releases/download/%s/%s-%s.tar.gz' % (PKGNAME, PKGVERSION, PKGNAME, PKGVERSION),
+    download_url='https://github.com/brmmm3/%s/releases/download/%s/%s-%s.tar.gz' % (PKGNAME, PKGVERSION, PKGNAME, PKGVERSION),
 
     author='Martin Bammer',
     author_email='mrbm74@gmail.com',
@@ -120,6 +120,8 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 
     keywords='fast threading thread pool',

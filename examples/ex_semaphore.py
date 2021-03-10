@@ -19,9 +19,10 @@ for _ in range(200000):
 print("fastthreadpool.Semaphore", time.time() - t)
 
 
-def Worker(i):
+def Worker(_i):
     s.release()
     s.acquire()
+
 
 t = time.time()
 pool = ThreadPool()

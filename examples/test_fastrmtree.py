@@ -1,6 +1,5 @@
 
 import os
-import sys
 import time
 
 import fastrmtree
@@ -14,8 +13,8 @@ def CreateDirs(baseDirName, dirCnt, fileCnt, level):
     else:
         os.makedirs(baseDirName)
         for fn in range(fileCnt):
-            with open(os.path.join(baseDirName, "file%d" % fn), "wb") as O:
-                O.write(b"12345678" * 100 * fn)
+            with open(os.path.join(baseDirName, "file%d" % fn), "wb") as F:
+                F.write(b"12345678" * 100 * fn)
 
 
 def CreateFakeTree(rootDirName):

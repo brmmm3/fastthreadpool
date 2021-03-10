@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import stat
-import scandir
 from collections import deque
 
 import fastthreadpool
@@ -16,7 +15,7 @@ import fastthreadpool
 
 def Scanner(rootDirName):
     items = deque()
-    for srcBaseDirName, dirNames, fileNames in scandir.walk(rootDirName):
+    for srcBaseDirName, dirNames, fileNames in os.walk(rootDirName):
         for dirName in dirNames:
             items.append((0, os.path.join(srcBaseDirName, dirName)))
         for fileName in fileNames:

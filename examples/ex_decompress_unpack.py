@@ -4,7 +4,7 @@ import gc
 from collections import deque
 from multiprocessing.pool import ThreadPool
 import fastthreadpool
-import zstd
+import zstandard as zstd
 import msgpack
 
 
@@ -13,13 +13,13 @@ result = deque()
 
 def worker(data):
     Z = zstd.ZstdDecompressor()
-    return msgpack.unpackb(Z.decompress(data), use_list = False)
+    return msgpack.unpackb(Z.decompress(data), use_list=False)
 
 
 def worker_gc(data):
     gc.disable()
     Z = zstd.ZstdDecompressor()
-    result = msgpack.unpackb(Z.decompress(data), use_list = False)
+    result = msgpack.unpackb(Z.decompress(data), use_list=False)
     gc.enable()
     return result
 
@@ -32,8 +32,9 @@ def map_result_cb(data):
     result.extend(data)
 
 
-packedData = zstd.ZstdCompressor(write_content_size = True, write_checksum = True, level = 14).compress(msgpack.packb(list(range(5000)), use_bin_type = True))
-packedValues = [ packedData for _ in range(1000) ]
+packedData = zstd.ZstdCompressor(write_content_size=True, write_checksum=True, level=14).compress(msgpack.packb(list(range(5000)),
+                                                                                                                use_bin_type=True))
+packedValues = [packedData for _ in range(1000)]
 
 t = time.time()
 for value in packedValues:
@@ -97,7 +98,7 @@ gc.enable()
 
 t = time.time()
 pool = ThreadPool()
-pool.map_async(worker, packedValues, callback = map_result_cb)
+pool.map_async(worker, packedValues, callback=map_result_cb)
 pool.close()
 pool.join()
 print("multiprocessing.pool.ThreadPool.map_async: %.3f" % (time.time() - t), len(result))
@@ -106,7 +107,7 @@ result.clear()
 gc.disable()
 t = time.time()
 pool = ThreadPool()
-pool.map_async(worker, packedValues, callback = map_result_cb)
+pool.map_async(worker, packedValues, callback=map_result_cb)
 pool.close()
 pool.join()
 print("multiprocessing.pool.ThreadPool.map_async(no gc2): %.3f" % (time.time() - t), len(result))
@@ -116,7 +117,7 @@ gc.enable()
 t = time.time()
 pool = ThreadPool()
 for value in packedValues:
-    pool.apply_async(worker, ( value, ), callback = result_cb)
+    pool.apply_async(worker, (value, ), callback=result_cb)
 pool.close()
 pool.join()
 print("multiprocessing.pool.ThreadPool.apply_async: %.3f" % (time.time() - t), len(result))
@@ -126,10 +127,9 @@ gc.disable()
 t = time.time()
 pool = ThreadPool()
 for value in packedValues:
-    pool.apply_async(worker, ( value, ), callback = result_cb)
+    pool.apply_async(worker, (value, ), callback=result_cb)
 pool.close()
 pool.join()
 print("multiprocessing.pool.ThreadPool.apply_async(no gc2): %.3f" % (time.time() - t), len(result))
 result.clear()
 gc.enable()
-

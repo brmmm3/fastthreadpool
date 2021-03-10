@@ -1,3 +1,12 @@
+1.8.1:
+    Add Cython as requirement.
+    Fix several PEP8 findings.
+    Update list of supported Python versions.
+
+1.8.0:
+    Set default value of map argument unpack_args to None for auto detection
+        of unpacking args.
+
 1.7.0:
     Add wait_idle method to wait for thread pool getting idle.
 

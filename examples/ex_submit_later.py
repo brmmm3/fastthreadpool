@@ -4,12 +4,15 @@ import fastthreadpool
 
 pool = fastthreadpool.Pool()
 
+
 def Hello(text):
     print(text)
     return "World"
 
+
 def Done(result):
     print("Done", result)
+
 
 pool.submit_later(1.0, Hello, "Hallo1s")
 pool.submit_later(1.1, Hello, "Hallo1.1s")

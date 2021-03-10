@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import traceback
-import scandir
 from collections import deque
 from threading import Event
 
@@ -19,7 +18,7 @@ def Scanner(rootDirName, items, evt):
     rootDirNameLen = len(rootDirName) + 1
     path_join = os.path.join
     try:
-        for srcBaseDirName, dirNames, fileNames in scandir.walk(rootDirName):
+        for srcBaseDirName, dirNames, fileNames in os.walk(rootDirName):
             for dirName in dirNames:
                 items.append((0, path_join(srcBaseDirName[rootDirNameLen:], dirName)))
             for fileName in fileNames:
@@ -37,20 +36,20 @@ def Copy(srcPathName, dstPathName):
     MAXBS = 1024 * 1024
     time_time = time.time
     try:
-        with open(dstPathName, "wb") as O:
-            with open(srcPathName, "rb") as I:
+        with open(dstPathName, "wb") as W:
+            with open(srcPathName, "rb") as R:
                 while True:
                     t1 = time_time()
-                    data = I.read(BS)
+                    data = R.read(BS)
                     if not data:
                         break
                     dt = time_time() - t1
-                    O.write(data)
+                    W.write(data)
                     if (BS < MAXBS) and (dt < 0.1):
                         BS <<= 1
                     elif (BS > MINBS) and (dt > 0.5):
                         BS >>= 1
-            O.flush()
+            W.flush()
     except:
         traceback.print_exc()
 
